@@ -17,6 +17,23 @@
   // Leave empty ("") to run in local-only mode (no cloud sync, admin view disabled).
   const APPS_SCRIPT_URL = "";
 
+  // Google Form writeback — agents' quiz submissions stream into a linked sheet.
+  const FORM_ENDPOINT =
+    "https://docs.google.com/forms/d/e/1FAIpQLScfJCz0yo3NRFLPHFdtZqE7LNsyLb8DmBheKpEu0LXeb5cQ4Q/formResponse";
+  const FORM_ENTRY_IDS = {
+    email:    "entry.1752372676",
+    name:     "entry.24046968",
+    category: "entry.989897238",
+    totalQ:   "entry.1496081168",
+    correct:  "entry.1398515673",
+    score:    "entry.777895519",
+    result:   "entry.1600708348",
+    attempt:  "entry.383369262",
+  };
+  // Once user publishes the linked sheet's "Form Responses 1" tab as CSV,
+  // paste the public CSV URL here to enable the admin dashboard data read.
+  const FORM_RESPONSES_CSV_URL = "";
+
   const ADMIN_EMAIL_FALLBACK = "shamshul.siddiqui@wiom.in";
   const PASS_PCT = 100; // strict — agent must score 100% to unlock next
   const ENABLE_VALUE = "enable"; // value in col 4 that means "show this card"
@@ -136,6 +153,23 @@
   }
   function apiListUsers()       { return apiGet({ action: "users" }); }
   function apiListSubmissions() { return apiGet({ action: "submissions" }); }
+
+  // ---- Google Form writeback (fire-and-forget, no-cors) ----
+  const FORM_ENABLED = !!FORM_ENDPOINT;
+  function submitToForm(payload) {
+    if (!FORM_ENABLED) return Promise.resolve();
+    const fd = new FormData();
+    fd.append(FORM_ENTRY_IDS.email,    payload.email    || "");
+    fd.append(FORM_ENTRY_IDS.name,     payload.name     || "");
+    fd.append(FORM_ENTRY_IDS.category, payload.category || "");
+    fd.append(FORM_ENTRY_IDS.totalQ,   String(payload.totalQ   || 0));
+    fd.append(FORM_ENTRY_IDS.correct,  String(payload.correct  || 0));
+    fd.append(FORM_ENTRY_IDS.score,    String(payload.score    || 0));
+    fd.append(FORM_ENTRY_IDS.result,   payload.passed ? "PASS" : "RETRY");
+    fd.append(FORM_ENTRY_IDS.attempt,  String(payload.attempt  || 1));
+    return fetch(FORM_ENDPOINT, { method: "POST", mode: "no-cors", body: fd })
+      .catch(() => { /* silent — agent never blocked by network issues */ });
+  }
 
   // ===========================================================================
   //  CSV PARSER (handles quoted multi-line cells)
@@ -384,18 +418,22 @@
     };
     saveProgress();
 
-    // Fire-and-forget submission to Apps Script
+    // Fire-and-forget submission — Apps Script (preferred) or Google Form (fallback)
+    const submission = {
+      email:    currentEmail(),
+      name:     currentName(),
+      category: categoryName || catId,
+      totalQ:   total,
+      correct:  correct,
+      score:    pct,
+      passed:   passed,
+      attempt:  attemptNum
+    };
     if (API_ENABLED) {
-      apiSubmit({
-        email:    currentEmail(),
-        name:     currentName(),
-        category: categoryName || catId,
-        totalQ:   total,
-        correct:  correct,
-        score:    pct,
-        passed:   passed ? "true" : "false",
-        attempt:  attemptNum
-      }).catch(() => { /* silent — don't block agent */ });
+      apiSubmit(Object.assign({}, submission, { passed: passed ? "true" : "false" }))
+        .catch(() => submitToForm(submission));
+    } else {
+      submitToForm(submission);
     }
     return { pct, passed };
   }
@@ -983,12 +1021,15 @@
   }
 
   async function renderAdmin() {
-    if (!API_ENABLED) {
+    const hasApi = API_ENABLED;
+    const hasCsv = !!FORM_RESPONSES_CSV_URL;
+
+    if (!hasApi && !hasCsv) {
       $root.innerHTML = `
         <div class="page-head"><div><h1>Admin Dashboard <span class="emoji-bounce">📊</span></h1></div></div>
         <div class="error-block">
-          ⚠️ Apps Script URL configured nahi hai — admin view ke liye chahiye.
-          <br><br>Apps Script deploy karke <code>js/wiom-app.js</code> me <code>APPS_SCRIPT_URL</code> constant me URL paste karein.
+          ⚠️ Cloud sync setup pending hai. Admin dashboard ke liye Form Responses sheet ko CSV-publish karke URL bhejna hai.
+          <br><br>Tab tak agents ki training data unke laptops me localStorage me save ho rahi hai, aur Form ke through linked sheet me bhi aa rahi hai (jab cheh kar sheet khologe).
         </div>`;
       return;
     }
@@ -1008,15 +1049,72 @@
 
     let users = [], subs = [];
     try {
-      const [u, s] = await Promise.all([apiListUsers(), apiListSubmissions()]);
-      users = u.rows || [];
-      subs  = s.rows || [];
+      if (hasApi) {
+        const [u, s] = await Promise.all([apiListUsers(), apiListSubmissions()]);
+        users = u.rows || [];
+        subs  = s.rows || [];
+      } else {
+        // Read submissions from published Form Responses CSV
+        subs = await loadFormResponsesCsv();
+        // Synthesize a users list from submission emails
+        const seen = {};
+        users = [];
+        subs.forEach(s => {
+          if (!s.email || seen[s.email]) return;
+          seen[s.email] = true;
+          users.push({ email: s.email, name: s.name, role: s.email === ADMIN_EMAIL_FALLBACK ? "admin" : "agent" });
+        });
+        // Ensure admin row exists even with no submissions
+        if (!seen[ADMIN_EMAIL_FALLBACK]) {
+          users.unshift({ email: ADMIN_EMAIL_FALLBACK, name: "Admin", role: "admin" });
+        }
+      }
     } catch (e) {
       $root.innerHTML = `<div class="error-block">Admin data load nahi hua: ${escapeHtml(e.message)}</div>`;
       return;
     }
 
     drawAdmin(users, subs);
+  }
+
+  async function loadFormResponsesCsv() {
+    const res = await fetch(FORM_RESPONSES_CSV_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error("CSV " + res.status);
+    const text = await res.text();
+    const rows = parseCSV(text);
+    if (rows.length < 2) return [];
+    // Form responses sheet has columns:
+    //   Timestamp | Email | Name | Category | Total Q | Correct | Score | Result | Attempt
+    // First column "Timestamp" is auto-added by Google Forms.
+    const header = rows[0].map(h => h.trim().toLowerCase());
+    const idx = {
+      ts:       header.findIndex(h => h.includes("timestamp")),
+      email:    header.findIndex(h => h === "email"),
+      name:     header.findIndex(h => h === "name"),
+      category: header.findIndex(h => h === "category"),
+      totalQ:   header.findIndex(h => h.includes("total")),
+      correct:  header.findIndex(h => h === "correct"),
+      score:    header.findIndex(h => h === "score"),
+      result:   header.findIndex(h => h === "result"),
+      attempt:  header.findIndex(h => h.includes("attempt")),
+    };
+    const out = [];
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r[idx.email]) continue;
+      out.push({
+        ts:       Date.parse(r[idx.ts] || "") || 0,
+        email:    String(r[idx.email]).trim().toLowerCase(),
+        name:     r[idx.name] || "",
+        category: r[idx.category] || "",
+        totalQ:   parseInt(r[idx.totalQ] || "0", 10) || 0,
+        correct:  parseInt(r[idx.correct] || "0", 10) || 0,
+        score:    parseInt(r[idx.score] || "0", 10) || 0,
+        result:   String(r[idx.result] || "").toUpperCase(),
+        attempt:  parseInt(r[idx.attempt] || "1", 10) || 1,
+      });
+    }
+    return out;
   }
 
   function drawAdmin(users, subs) {
