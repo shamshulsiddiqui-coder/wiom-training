@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Training Module — WIOM</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/auth.css" />
+</head>
+<body class="training-page">
+
+  <header class="topbar">
+    <div>
+      <div class="logo">WI<span>OM</span></div>
+      <div class="tagline">Training Module</div>
+    </div>
+    <a href="index.html" class="nav-link">← Back to Dashboard</a>
+  </header>
+
+  <section class="training-hero" id="trainingHero">
+    <span class="level-badge" id="levelBadge">L1</span>
+    <h1 id="categoryName">Loading...</h1>
+    <p id="categoryMeta">—</p>
+  </section>
+
+  <main class="training-content">
+
+    <div class="module-card">
+      <h2><span class="icon-box">📋</span> <span id="sopTitle">SOP</span></h2>
+      <div id="sopSteps"></div>
+    </div>
+
+    <div class="module-card">
+      <h2><span class="icon-box">💬</span> Objection Handling</h2>
+      <div id="objectionsList"></div>
+    </div>
+
+    <div class="cta-row">
+      <a href="index.html" class="btn btn-secondary">← Dashboard</a>
+      <button class="btn btn-primary" id="startQuizBtn">Quiz Start Karein →</button>
+    </div>
+
+  </main>
+
+  <div class="footer">WIOM Training Portal • v1.0</div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/training.js"></script>
+</body>
+</html>

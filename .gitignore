@@ -1,0 +1,23 @@
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+
+# Logs / runtime
+*.log
+.cache/
+
+# Local artifacts
+sheet_dump.csv
+tools/__pycache__/
+*.pyc
+
+# Local server output
+nohup.out

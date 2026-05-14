@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WIOM Training — Ghar Wala Net</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/auth.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div>
+      <div class="logo">WI<span>OM</span></div>
+      <div class="tagline">Ghar Wala Net • Agent Training Portal</div>
+    </div>
+    <a href="#progress" class="nav-link" id="resetLink">Reset Progress</a>
+  </header>
+
+  <section class="hero">
+    <div class="greeting" id="greeting">Namaste 👋</div>
+    <h1>Aaj Ki Training</h1>
+    <div class="date" id="todayDate">—</div>
+    <div class="today-banner">
+      Aaj aapko complete karni hai <strong id="todayCount">0</strong> categories
+    </div>
+  </section>
+
+  <main class="container">
+
+    <!-- WIOM Intro placeholders — content baad me bharenge -->
+    <section class="intro-strip">
+      <div class="intro-card">
+        <h3>WIOM Kya Hai?</h3>
+        <p id="introText">Loading...</p>
+      </div>
+      <div class="intro-card">
+        <h3>Market Problem</h3>
+        <p id="problemText">Loading...</p>
+      </div>
+      <div class="intro-card">
+        <h3>Hamara Yogdan</h3>
+        <p id="contributionText">Loading...</p>
+      </div>
+    </section>
+
+    <!-- Today's Plan -->
+    <section style="margin-bottom: 32px;">
+      <div class="section-heading">
+        <h2>📋 Aaj Ka Plan</h2>
+        <span class="subtitle">Niche se select karo kis category ki training karni hai</span>
+      </div>
+      <div class="category-grid" id="todayGrid"></div>
+    </section>
+
+    <!-- All Categories -->
+    <section>
+      <div class="section-heading">
+        <h2>🎯 Saari Categories</h2>
+        <span class="subtitle">Practice ke liye koi bhi category select kar sakte ho</span>
+      </div>
+      <div class="category-grid" id="allGrid"></div>
+    </section>
+
+  </main>
+
+  <div class="footer">
+    WIOM Training Portal • v1.0 (Local Preview)
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

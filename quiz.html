@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quiz — WIOM Training</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/auth.css" />
+</head>
+<body class="quiz-page">
+
+  <header class="topbar">
+    <div>
+      <div class="logo">WI<span>OM</span></div>
+      <div class="tagline">MCQ Test</div>
+    </div>
+    <a href="index.html" class="nav-link">← Dashboard</a>
+  </header>
+
+  <main class="quiz-container">
+
+    <div class="quiz-header">
+      <h2 id="quizTitle">Quiz</h2>
+      <span class="progress-pill"><span id="qCurrent">1</span> / <span id="qTotal">8</span></span>
+    </div>
+
+    <div class="quiz-progress-bar">
+      <div class="fill" id="quizProgress"></div>
+    </div>
+
+    <div id="quizArea"></div>
+
+  </main>
+
+  <div class="footer">WIOM Training Portal • v1.0</div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/quiz.js"></script>
+</body>
+</html>

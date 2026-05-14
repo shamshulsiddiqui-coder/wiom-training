@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — WIOM Training</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/auth.css" />
+</head>
+<body class="auth-body">
+
+  <div class="auth-card">
+    <div class="auth-logo">WI<span>OM</span></div>
+    <div class="auth-tagline">Ghar Wala Net • Training Portal</div>
+
+    <h1>Welcome back 👋</h1>
+    <p class="auth-sub">Apni WIOM email se login karo aur training start karo.</p>
+
+    <form id="loginForm" autocomplete="on">
+      <label for="email">WIOM Email</label>
+      <input
+        type="email"
+        id="email"
+        name="email"
+        placeholder="yourname@wiom.in"
+        required
+        autofocus
+      />
+      <div class="auth-error" id="authError"></div>
+      <button type="submit" class="btn btn-primary auth-btn">Login →</button>
+    </form>
+
+    <div class="auth-foot">
+      Sirf <strong>@wiom.in</strong> emails allowed hain.<br/>
+      Admin: training assign karne ke liye admin.html.
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>

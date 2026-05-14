@@ -1,0 +1,757 @@
+{
+  "bot_metadata": {
+    "name": "WIOM CSP Support Assistant",
+    "language": "Hinglish",
+    "purpose": "L1 support assistant for WIOM CSP / Partner / Rohit agents",
+    "rules": [
+      "Always respond in Hinglish (Hindi written in English script).",
+      "Match the user's query with the 'triggers' array of each intent.",
+      "Reply with the EXACT 'response' field of the matched intent — do not remove or alter the 'Sub-Category:' line at the top.",
+      "The 'Sub-Category:' line at the top of each response MUST be shown to the user as the first line of every reply.",
+      "Do not invent steps or policies not present in the response.",
+      "If 'action_required' is 'L2_TICKET', clearly tell the agent that a ticket needs to be raised and share the callback message.",
+      "For probing-based responses (multi-case), ask the probing question first, then guide based on case.",
+      "If no intent matches, use the fallback_response."
+    ],
+    "fallback_response": "📂 Sub-Category: Not Identified\n\nSir, aapka exact issue main confirm karna chahta hu — kripya thoda detail me batayein. Ya agar aap chahein to apni complaint register karwa dein, system dwara aapko callback aa jayega."
+  },
+  "knowledge_base": [
+    {
+      "id": 1,
+      "category": "Partner Complaint Against Partner",
+      "triggers": [
+        "Ek partner doosre partner ke against complaint kar raha hai",
+        "Partner kisi aur partner ke khilaaf complaint karna chahta hai",
+        "CSP complaint against another CSP",
+        "Partner vs partner issue"
+      ],
+      "response": "📂 Sub-Category: Partner Complaint Against Partner\n\nSabse pehle CSP se issue detail me pucho aur bataye gaye sabhi points properly note karo.\n\nPhir CSP ko bolo:\n\"Sir, aapki concern note kar li gayi hai. Is prakaar ke cases system verification ke madhyam se review kiye jaate hain. Verification complete hone ke baad, agar koi action required hoga, to woh system SOP aur policy ke anusaar liya jayega.\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 2,
+      "category": "PayG Speed Upgrade",
+      "triggers": [
+        "PayG customer ki speed kaise upgrade karu?",
+        "50 Mbps se 100 Mbps kaise karu?",
+        "PayG me speed change kab karna hai?",
+        "Speed upgrade ka koi charge hai?",
+        "PayG recharge ke baad speed kaise badhau?"
+      ],
+      "response": "📂 Sub-Category: PayG Speed Upgrade\n\nSir, jo customers PayG model par aa chuke hain aur pehle 50 Mbps par the, unki speed aapko 100 Mbps karni hoti hai.\n\nKaunse customer PayG me hai, yeh aapko App me recharge ke time dikh jata hai.\n\nJaise hi customer PayG recharge leta hai, aap unki speed upgrade kar sakte hain.\n\nIs speed upgrade ke liye customer ko koi extra charge nahi dena hota — woh sirf apni zarurat ke hisaab se recharge karta hai.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 3,
+      "category": "PayG Customer Impact",
+      "triggers": [
+        "PayG customer ko kya batau?",
+        "Customer PayG me confuse hai",
+        "PayG aur purane plan me kya difference hai?",
+        "PayG me recharge nahi hua to kya hoga?",
+        "Customer ko PayG kaise samjhau?"
+      ],
+      "response": "📂 Sub-Category: PayG Customer Impact\n\nSir, PayG me customer ko alag-alag options milte hain — 1 din se lekar 28 din tak.\n\nApp me sab clearly mentioned hota hai — price aur duration dono — isliye customer apni zarurat ke hisaab se plan easily choose kar sakta hai.\n\nAgar customer confuse ho, to aap simple itna bol sakte hain — \"Apni zarurat ke hisaab se plan choose karo — 1 din se 84 din tak options available hain.\"\n\nAgar phir bhi confusion ho, to customer Wiom call center se bhi help le sakta hai.\n\nYeh naya PayG system hai — iska purane plan se koi direct relation nahi hai.\n\nAur agar customer recharge nahi karta, to net band ho jata hai lekin connection active rehta hai. Jaise hi recharge hota hai, net automatically wapas chalu ho jata hai — aapko kuch bhi karne ki zarurat nahi hoti.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 4,
+      "category": "PayG Payout",
+      "triggers": [
+        "PayG me meri kamai par kya asar hoga?",
+        "PayG me payout kitna milega?",
+        "Pehle 330 milta tha, ab 300 kyu?",
+        "PayG ke baad commission kam ho gaya?",
+        "100 Mbps ka payout 300 kyu hai?",
+        "Bharat ka payout kam ho gaya"
+      ],
+      "response": "📂 Sub-Category: PayG Payout\n\nSir, aapki kamai par koi asar nahi padega.\n\nAapki earning connection par based hai, recharge duration par nahi. Chahe customer 1 din ka recharge kare ya 28 din ka, aapko Rs.300 milte rahenge — bilkul pehle jaisa.\n\nPayG me sirf itna change hai ki ab customer apni zarurat ke hisaab se jitne din ka net chaahe utne din ka recharge kar sakta hai.\n\nPayout cycle me bhi koi change nahi hai — pehle jaisa hi rahega.\n\nAgar customer 15 din tak recharge nahi karta hai, to Netbox pickup process start ho jata hai.\n\nIf call is from Bharat region:\n\"Sir, aap sahi keh rahe hain — pehle 100 Mbps connections par Rs.330 milta tha, aur ab Rs.300 ho gaya hai. Ab Wiom ne sab connections ke liye ek standard rate Rs.300 kar diya hai. Isme 50 Mbps connections ka payout Rs.270 se badhkar Rs.300 ho gaya hai, aur 100 Mbps ka Rs.330 se Rs.300 ho gaya hai. Yeh ek standardization change hai jisme sabke liye same rate apply kiya gaya hai.\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 5,
+      "category": "App Exit Issue",
+      "triggers": [
+        "App se exit ho raha hai",
+        "Consent form sign nahi kiya to kya hoga?",
+        "Exit process start kaise hota hai?",
+        "Account band ho jayega kya?",
+        "Exit reverse ho sakta hai?"
+      ],
+      "response": "📂 Sub-Category: App Exit Issue\n\nSir, consent naye system me kaam continue karne ke liye mandatory hai.\n\nAgar aap given date tak consent form sign nahi karte, to system automatically exit process start kar deta hai.\n\nExit ka matlab hota hai ki aapka Wiom account band ho jayega aur App access bhi band ho jayega.\n\nEk baar exit process start ho jata hai, to ise reverse nahi kiya ja sakta.\n\nConsent sirf owner ke Wiom App se hi accept kiya ja sakta hai — kisi aur mode ya admin login se nahi.\n\nAgar consent time ke andar sign ho jata hai to exit process start nahi hota.\n\nAapko iski saari details aur status App me hi mil jayegi.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 6,
+      "category": "PNM Related (Netbox at OLT)",
+      "triggers": [
+        "Netbox kyu lagaya ja raha hai?",
+        "PNM Netbox kya hai?",
+        "Netbox ka kharcha kaun dega?",
+        "OLT ke paas Netbox kyu?",
+        "Netbox lagne ke baad kya milega?"
+      ],
+      "response": "📂 Sub-Category: PNM Related (Netbox at OLT)\n\nSir, yeh Netbox aapke network ki seva ko behtar banaye rakhne ke liye install kiya ja raha hai. Iska kaam hai network me aane wali dikkat ko jaldi pehchanna aur resolve karna, taaki customer ko better internet milta rahe.\n\nIsse internet speed par koi asar nahi padega.\n\nYeh Netbox aapke OLT ke paas lagaya jayega, bas wahan thodi jagah aur ek power socket available hona chahiye.\n\nIska poora kharcha aur recharge Wiom handle karta hai — aapko koi payment nahi karni hai.\n\nAur jaise hi Netbox activate hota hai, Rs.120 aapke wallet me credit ho jata hai within a week. Recharge par bhi isi tarah system ke through payout milta hai.\n\nIske liye system ke through aapko visit schedule karne ke liye call aayega.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 7,
+      "category": "App Calling Issue",
+      "triggers": [
+        "IVR call connect nahi ho rahi",
+        "App se customer ko call nahi ja rahi",
+        "Calling issue aa raha hai",
+        "Customer ko call kaise karu?",
+        "Registered number se call nahi lag rahi"
+      ],
+      "response": "📂 Sub-Category: App Calling Issue\n\nStep 1 — Context confirm karo: CSP se pucho ki wo Service Ticket ki baat kar rahe hain ya Installation ki, taaki correct context samajh aaye.\n\nStep 2 — Registered number verify karo: Ensure karo ki CSP registered number se hi IVR par call kar raha hai, kyunki system sirf registered number se hi call connect karta hai.\n\nStep 3 — Agar registered number nahi hai: CSP ko guide karo ki Wiom me jo number registered hai, usi se call kare. Issue generally yahin resolve ho jata hai.\n\nBackend (L2) Process:\nAgar CSP confirm kare ki wo registered number se hi call kar raha hai aur phir bhi issue aa raha hai, to CSP se call ki screen recording share karne ke liye bolo. Recording milne ke baad issue ko Bug Front par raise karo, taaki system team usse verify karke required action le sake.",
+      "action_required": "CONDITIONAL_BUG_RAISE"
+    },
+    {
+      "id": 8,
+      "category": "Cash Payment Related Queries",
+      "triggers": [
+        "Customer cash dena chahta hai",
+        "CSP cash collect kar sakta hai?",
+        "Customer online payment nahi kar pa raha",
+        "Cash le sakte hain kya?"
+      ],
+      "response": "📂 Sub-Category: Cash Payment Related Queries\n\nSir, Wiom system me CSP ya kisi bhi representative ke through cash collect karna allowed nahi hai.\n\nCustomer apni payment sirf Wiom App ke through hi karta hai.\n\nAgar customer online payment nahi kar pa raha, to App me QR code ka option hota hai jisse woh kisi bhi dusre vyakti se payment karwa sakta hai.\n\nYeh poora process customer ke control me hota hai — woh jisse chahe usse payment karwa sakta hai.\n\nQR code ka option customer App me UPI payment section ke paas hi available hota hai.\n\nWiom aur unka koi bhi pratinidhi cash collect nahi karta. Is baare me aapko system se pehle hi information di gayi hogi — kripya apna WhatsApp ya SMS check karein.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 9,
+      "category": "Customer Not Picking Calls - New Installation",
+      "triggers": [
+        "Customer call nahi utha raha new installation me",
+        "Installation customer call receive nahi kar raha",
+        "New customer phone nahi utha raha"
+      ],
+      "response": "📂 Sub-Category: Customer Not Picking Calls - New Installation\n\nPehle confirm karo ki kya CSP App ke call icon se call kar raha hai aur registered number use kar raha hai.\n\nJiske paas lead assigned hai (Owner / Rohit / Admin), unko apne Wiom me registered number se hi call karna hoga.\n\nAgar call connect ho rahi hai lekin customer pick nahi kar raha, to CSP ko bolo ki 2-3 baar different time slots me dubara try kare.\n\nAgar customer call pick nahi karta aur installation complete nahi hoti, to 24 hours ke andar system se lead automatically remove ho jati hai.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 10,
+      "category": "Customer Not Picking Calls - Service TT",
+      "triggers": [
+        "Service ticket me customer call nahi utha raha",
+        "TT me customer phone nahi utha raha",
+        "Alternate number nahi hai customer ka"
+      ],
+      "response": "📂 Sub-Category: Customer Not Picking Calls - Service TT\n\nCSP ko inform karo ki wo customer ko dubara try kare kyunki system me koi alternate number available nahi hai. Agar alternate number available hoga to wo ticket ke remarks section me mil jayega.\n\nAgar pehli baar call connect na ho, to thoda gap dekar dubara try karne ke liye guide karo aur confirmation le lo.\n\nAgar CSP bole ki TAT nikal raha hai ya score/rating impact hogi, to inform karo: \"Aapki complaint system me register ho chuki hai aur system dwara 10-15 minutes me callback aa jayega.\" → Raise ticket to L2.\n\nBackend (L2) Process:\nCSP ko inform karein ki in situations ke liye system service strike rate me 20% ki chhoot deta hai.",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 11,
+      "category": "Customer Number Not Visible",
+      "triggers": [
+        "Customer ka number nahi dikh raha",
+        "Number visible nahi hai",
+        "Installation lead me customer number kaha hai?",
+        "Service ticket me number kyu nahi dikh raha?"
+      ],
+      "response": "📂 Sub-Category: Customer Number Not Visible\n\nPehle clarify karo ki CSP Installation lead ki baat kar rahe hain ya Service Ticket (Internet supply down / Slow browsing / Shifting / Device Pickup etc).\n\nCase 1 — Installation:\n\"Sir, system me direct number visible nahi hota. Aapko App ke call icon se IVR ke through call karni hoti hai. Jab customer se call connect hoti hai, tabhi number visible hota hai.\"\n\nCase 2 — Service Ticket:\n\"Sir, jab aap ticket assign karte hain ya us par kaam karte hain, to call IVR ke through directly customer se connect hoti hai aur service ticket me customer ka number visible hota hai.\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 12,
+      "category": "Enquiry About CSP Rating",
+      "triggers": [
+        "Meri rating kam kyu hui?",
+        "Rating kaise check karu?",
+        "Rating kaha milti hai?",
+        "Performance kaise dekhu?"
+      ],
+      "response": "📂 Sub-Category: Enquiry About CSP Rating\n\nCSP ko inform karo ki rating Wiom ke through nahi di jati, balki directly customer ke through milti hai, aur baaki sari details CSP App me available hoti hain jaha wo apni performance aur team-wise data check kar sakte hain.\n\nCSP ko bolo: \"App ke top me jaha star dikh raha hai, waha click karne par saari detail show hoti hai.\"\n\nAgar CSP rating ke baare me enquiry kare, to proper probing karo ki unhe kya issue aa raha hai aur kaise laga ki rating kam hui hai. Jo bhi CSP bataye usse note down karo.\n\nCSP ko guide karo ki wo App me apni rating aur performance regularly review kare.\n\nAgar CSP fir bhi satisfy nahi hota: \"Aapki complaint system me register kar li gayi hai aur system se callback receive hoga.\" → Raise ticket to L2.\n\nBackend (L2) Process:\nCSP ko inform kiya jata hai ki rating Wiom ke through nahi di jati, balki directly customer ke through milti hai. Baaki sari details CSP App me available hoti hain, jahan CSP apni performance aur team-wise data bhi easily check kar sakte hain. CSP ko guide karein ki wo App me jaakar apni details regularly review karein.",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 13,
+      "category": "Feedback",
+      "triggers": [
+        "Mujhe feedback dena hai",
+        "System ke baare me suggestion hai",
+        "Feedback share karna hai"
+      ],
+      "response": "📂 Sub-Category: Feedback\n\nSir, aapka point humne note kar liya hai.\n\nSystem isi tarah ke feedback ke basis par operate karta hai. Agar system isme koi change karta hai, to woh automatically App me reflect ho jata hai.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 14,
+      "category": "Ground Support Request",
+      "triggers": [
+        "BDO / PSM / AM ka support chahiye",
+        "Booking ke liye ground support",
+        "Customer convincing ke liye visit chahiye",
+        "Field support kaise milega?"
+      ],
+      "response": "📂 Sub-Category: Ground Support Request\n\nSir, ab booking banane ya customer convincing ya ground support ke liye BDO, PSM ya AM ka role available nahi hai.\n\nAb poora booking process system ke through hota hai.\n\nIska detailed explanation 'Ab Nayi Bookings Kaise Ayengi' document me diya gaya hai jo ki WhatsApp channel me 22 Jan ko share ki ja chuki hai.\n\nAap iske baare me adhik jaankari CSP Plus App ya Wiom ke official WhatsApp channel par check kar sakte hain.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 15,
+      "category": "Outage Scenario - System Alert",
+      "triggers": [
+        "Outage message kyu aaya?",
+        "Netbox down ka alert mila",
+        "Outage kaise detect hota hai?",
+        "Kitne Netbox down ka matlab kya?",
+        "Outage kab close hota hai?"
+      ],
+      "response": "📂 Sub-Category: Outage Scenario - System Alert\n\nSir, Wiom ka system har 5 minute me Netbox check karta hai. Agar 15 minute tak Netbox respond nahi karta, tab system outage detect karta hai.\n\nYeh outage call ya complaint se trigger nahi hota — sirf Netbox ke signal par depend karta hai.\n\nAgar upstream ISP down ho jata hai, to sab Netbox unreachable ho jaate hain aur outage automatically detect ho jata hai.\n\nSystem sirf unhi customers ko message bhejta hai jinka Netbox actually down hota hai — baaki customers ko disturb nahi kiya jata.\n\nJab 90% Netbox ki connectivity wapas aa jaati hai, system outage close kar deta hai aur alerts band ho jaate hain.\n\nAur jo message aata hai ki 'itne Netbox down hain' — iska matlab hai ki system ne aapke area me utne Netbox detect kiye hain jo abhi respond nahi kar rahe hain. Yeh count isliye diya jata hai taaki aap samajh sakein ki kitne connections affected hain aur field planning uske hisaab se kar sakein.\n\nJaise-jaise Netbox recover hote jaate hain, system automatically update ho jata hai.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 16,
+      "category": "Installation M1 Commission",
+      "triggers": [
+        "Installation ka 300 kab milega?",
+        "M1 commission kab credit hota hai?",
+        "Installation payout kaise milta hai?",
+        "ISP recharge ka 300 kab milega?"
+      ],
+      "response": "📂 Sub-Category: Installation M1 Commission\n\nSir, Rs.300 ka payout system-based hai aur do situations me milta hai.\n\nPehla — jab customer ka net set up ho jata hai, tab Rs.300 aapke wallet me automatically credit ho jata hai.\n\nDoosra — jab aap ISP recharge ticket claim karke 30 din ka recharge 100 Mbps pe complete karte hain, tab bhi Rs.300 milta hai.\n\nYeh process har valid recharge ticket par apply hota hai. Isliye agar ek hi user multiple baar recharge karta hai, to ISP ticket claim karne pe har baar Rs.300 milta hai.\n\nYeh amount automatically aapke wallet me reflect hota hai.\n\nAap iski details apne CSP App ke wallet section ya rate card me bhi check kar sakte hain.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 17,
+      "category": "Inventory Count Mismatch",
+      "triggers": [
+        "Inventory count mismatch ho raha hai",
+        "Device count match nahi ho raha",
+        "Stock count me galti hai",
+        "Inventory me difference dikh raha hai"
+      ],
+      "response": "📂 Sub-Category: Inventory Count Mismatch\n\nPehle probing karo ki mismatch kis section me show ho raha hai — IN THE OFFICE / COULD NOT BACKED / AT CUSTOMER HOUSE.\n\nJo bhi section CSP bataye, usse confirm karo ki device ka mismatch hai aur uski Device ID / Netbox ID le lo.\n\nSaari details ticket me properly mention karo aur L2 team ke liye raise karo.\n\nCSP ko inform karo: \"Aapki complaint system me register ho chuki hai aur system se callback aa jayega.\"\n\nBackend (L2) Process:\nStep 1 — Probing: CSP se proper probing karein aur identify karein ki mismatch kahan show ho raha hai — \"Could Not Get Back\" section me ya Office Inventory me.\n\nStep 2 — Agar mismatch \"Could Not Get Back\" me show ho raha hai:\n- Netbox ID lekar system me check karein\n- Check karein: kya disconnection ticket bani thi? Kya CSP ne 21 days ke andar ticket close kiya ya nahi?\n\nScenario Handling:\n- Agar ticket 21 days me close nahi hui: Ticket RA Team ko transfer ho jati hai. CSP ko inform karein ki isi wajah se \"Could Not Get Back\" status show ho raha hai.\n- Agar ticket bani hi nahi hai / case CSP ke paas nahi gaya: Proper details collect karein aur Bug raise karein.\n\nStep 3 — Ticket Handling:\nJab tak issue resolve nahi hota: ticket open rakhein aur CSP ko timely update dete rahein.",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 18,
+      "category": "ISP Recharge Proof",
+      "triggers": [
+        "ISP recharge proof upload nahi ho raha",
+        "ISP ticket me problem aa rahi hai",
+        "ISP recharge claim me dikkat"
+      ],
+      "response": "📂 Sub-Category: ISP Recharge Proof\n\nCSP se pooche ki unhe exactly kya problem aa rahi hai. Jo bhi issue CSP bataye usse properly note karo aur complete details ke saath L2 team ko ticket raise karo.\n\nBackend (L2) Process:\nStep 1 — Requirement samjhana: CSP ko batayein ki ab saare ISP recharge sirf Wiom CSP App se hi honge. Reason: process fast, easy aur manual effort kam.\n\nStep 2 — Login Setup: CSP se politely ISP portal ka username/password lein. Assure karein ki data safe hai (sirf setup ke liye use hota hai).\n\nStep 3 — Feature Explain karein: App automatically recharge submit karega. \"Select All\" option se bulk recharge possible hai.\n\nStep 4 — Trust Build karein: Portal access CSP ke paas hi rahega. Wiom sirf recharge trigger karta hai.\n\nStep 5 — Close Conversation: Confirm karein ki CSP setup ke liye ready hai. Agar issue ho to support help available hai.",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 19,
+      "category": "Lead Lifecycle - Customer Handshake / Awaited",
+      "triggers": [
+        "Customer awaited dikh raha hai",
+        "Customer number nahi dikh raha lead me",
+        "Customer awaited kab hatega?",
+        "Lead me customer details kaha hai?"
+      ],
+      "response": "📂 Sub-Category: Lead Lifecycle - Customer Handshake / Awaited\n\nCustomer number visibility:\n\"Sir, ab updated system flow ke hisaab se customer ka number installation start karne ke baad hi dikhai deta hai. Aap installation start karte hi customer details dekh sakenge. Agar aapko customer se baat karni hai, to aap App me available call icon ka use kar sakte hain.\"\n\nCustomer Awaited state:\n\"Sir, 'Customer Awaited' ek system state hai. Jab tak customer apna required action complete nahi karta, tab tak yeh state remove nahi hoti. Is state ko manually remove ya bypass karna allowed nahi hai. Lead apne defined system flow ke hisaab se hi aage badhti hai.\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 20,
+      "category": "Lead Lifecycle - Lead Capping",
+      "triggers": [
+        "Lead cancel ki to slot kab free hoga?",
+        "Slot release kaise hota hai?",
+        "Lead capping kya hai?",
+        "Mujhe aur leads kab milengi?"
+      ],
+      "response": "📂 Sub-Category: Lead Lifecycle - Lead Capping\n\nSir, slot release system ke internal rules ke hisaab se hota hai.\n\nCancellation ke baad bhi slot ka immediate free hona guarantee nahi hota, kyunki yeh system ke defined flow ke hisaab se process hota hai.\n\nIs process me manual intervention allowed nahi hai.\n\nSystem ke booking rules samay-samay par update hote rehte hain, aur jo rule us waqt active hota hai, system usse App ke flow ke through apply karta hai.\n\nSystem sirf wahi maanta hai jo App me dikh raha aur us moment par valid hai.\n\nIs sandarbh me aapko jo 1st Feb ko system se information aayi thi, usme leads aur booking se related saari details mention hain — aap usse refer kar sakte hain.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 21,
+      "category": "Lead Removed During Installation",
+      "triggers": [
+        "Installation ke time lead remove ho gayi",
+        "Lead gayab ho gayi installation ke beech",
+        "Installation start ki thi, lead nahi dikh rahi",
+        "Lead kyu remove hui?"
+      ],
+      "response": "📂 Sub-Category: Lead Removed During Installation\n\nStep 1 — Probing:\n\"Sir/Madam, jis installation ki aap baat kar rahe hain, kya aapne installation start ki thi ya start hone se pehle hi lead remove ho gayi?\"\n\nCase 1 — Installation Start Nahi Hui:\n\"Sir/Madam, jo installation slot App me show hota hai, woh system ke according assign hota hai. Agar us selected time slot par installation complete nahi hota, to system automatically lead ko remove kar deta hai. Isliye request hai ki given slot par installation ensure karein, warna lead remove ho sakti hai.\"\n→ No ticket.\n\nCase 2 — Installation Start Ho Chuki Thi (1-2 steps complete):\n\"Sir/Madam, aapki complaint system me register kar di gayi hai. System dwara aapko callback aayega, kripya call zaroor receive karein.\"\n→ Raise ticket to L2.\n\nBackend (L2) Process:\nCSP se customer ki detail mango aur Bug Front pe raise karo.",
+      "action_required": "CONDITIONAL_L2_TICKET"
+    },
+    {
+      "id": 22,
+      "category": "Lead Reschedule Request",
+      "triggers": [
+        "Customer ne installation postpone ki hai",
+        "Lead reschedule karna hai",
+        "Slot change karna hai",
+        "Customer ne time badal diya"
+      ],
+      "response": "📂 Sub-Category: Lead Reschedule Request\n\nStep 1 — CSP se confirm karo ki customer ne installation postpone ki hai.\n\nStep 2 — CSP ko inform karo:\n\"Lead manually reschedule nahi hoti hai. Jo slot App me show hota hai, usi samay ke andar installation complete karni hoti hai. Agar given time slot me installation complete nahi hoti, to lead system se automatically remove ho jati hai.\"\n\nStep 3 — CSP ko guide karo ki customer se proper coordination rakhe aur assigned slot ke andar installation complete karne ki koshish kare.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 23,
+      "category": "Multipin Installation Query",
+      "triggers": [
+        "Multipin kyu mandatory hai?",
+        "Multipin ka charge kya hai?",
+        "Bina multipin installation ho sakti hai?",
+        "Multipin kyu lena hai?"
+      ],
+      "response": "📂 Sub-Category: Multipin Installation Query\n\nSir, multipin plug ek mandatory system requirement hai. Bina multipin plug ke installation complete nahi maana jata.\n\nYeh temporary rule nahi hai, balki poore system ka standard process hai aur sabhi CSPs par equally apply hota hai — isme koi area ya case-based exception nahi hota.\n\nCustomer ko yeh system requirement samjhani hoti hai, aur installation checklist bhi App me available hai.\n\nMultipin plug ke liye customer se koi extra charge nahi liya jata. Iski quality aur specifications system define karta hai, aur iski saari details aapko multipin ke saath mile information letter me di gayi hoti hain.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 24,
+      "category": "Netbox & Adapter Policy",
+      "triggers": [
+        "Netbox kharab ho gaya",
+        "Adapter replace karna hai",
+        "Netbox swap kaise karu?",
+        "Customer se charge le sakta hu replacement ka?",
+        "Patch cord ka paisa le sakte hain?"
+      ],
+      "response": "📂 Sub-Category: Netbox & Adapter Policy\n\nSir, agar Netbox ya adaptor me koi issue aata hai, to aapko Netbox swap process follow karna hota hai.\n\nAap customer ke ghar par Netbox aur adaptor dono replace kar sakte hain, taaki internet turant chalu ho jaye.\n\nIs process me customer se koi bhi charge nahi liya jata — yeh completely free replacement hai.\n\nUske baad jo faulty Netbox aur adaptor hai, use aap Wiom warehouse bhej sakte hain. Warehouse bhejne ke baad aap CSP Plus App ke through naya Netbox + adaptor request kar sakte hain.\n\nDhyaan rahe sir, Netbox aur adaptor hamesha saath me hi replace aur warehouse bheje jaate hain — alag-alag nahi.\n\nAur kisi bhi accessory jaise patch cord ya extra wire ke liye bhi customer se koi extra payment lena allowed nahi hai.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 25,
+      "category": "Service & Rating Bonus Not Came",
+      "triggers": [
+        "Service bonus nahi mila",
+        "Rating bonus credit nahi hua",
+        "Bonus claim nahi hua",
+        "Earn money ka bonus nahi aaya"
+      ],
+      "response": "📂 Sub-Category: Service & Rating Bonus Not Came\n\nStep 1 — Guide CSP:\n\"Sir/Madam, aap App me apna Service Strike Rate aur Device Catch Rate check karein.\"\n\nStep 2 — Rate Verification:\n\nCase 1 — Rate 80% se Niche:\n\"Sir/Madam, aap Wiom Agreement section ke Rate Card me eligibility criteria check karein. Eligibility criteria meet na hone par issues aa sakte hain.\"\n→ No ticket.\n\nCase 2 — CSP Claims Rate >=80%:\n\"Sir/Madam, aapki complaint system me register kar di gayi hai. System dwara aapko callback aayega, kripya call zaroor receive karein.\"\n→ Raise ticket to L2.\n\nBackend (L2) Process:\nCSP se puche ki Earn Money section me claim karne ka option aa raha hai kya.\n- If yes: CSP ko claim karne ke liye bolo. Claim karne ke baad payout Wallet section me show hoga.\n- If CSP says claim option nahi show ho raha: Issue ko Bug Front SOP par raise karo.",
+      "action_required": "CONDITIONAL_L2_TICKET"
+    },
+    {
+      "id": 26,
+      "category": "NetBox Security & Refund Policy",
+      "triggers": [
+        "Security deposit kaise refund hota hai?",
+        "300 security ka refund kab milega?",
+        "CSP cash collect karega security ka?",
+        "Netbox security policy kya hai?"
+      ],
+      "response": "📂 Sub-Category: NetBox Security & Refund Policy\n\nCustomer jab naya connection leta hai, tab Rs.300 ka security deposit Wiom App ke through khud pay karta hai, kyunki system CSP ko cash collect karne ka option nahi deta. Jab tak App me payment complete nahi hota, tab tak installation proceed nahi hota.\n\nPayment complete hone ke baad CSP ka role sirf installation aur service dene tak limited rehta hai, aur wo kisi bhi tarah ka payment handle nahi karta.\n\nAgar baad me Netbox ka refund raise hota hai, to pehle system level par verification hota hai. Verification complete hone ke baad refund automatically Wiom system ke through process ho jata hai, jisme CSP ka koi role nahi hota. Refund process hone ke baad customer ko App ya SMS ke through update mil jata hai.\n\nAdhik jankari ke liye customer customer care par call karke apne sawalon ka jawab le sakta hai.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 27,
+      "category": "Partner Lottery",
+      "triggers": [
+        "Lottery kya hai?",
+        "Incentive program kaha dekhu?",
+        "Rate card kaha milega?",
+        "Partner lottery ke baare me batao"
+      ],
+      "response": "📂 Sub-Category: Partner Lottery\n\nSir, lottery ya incentive programs time-bound hote hain. Jo bhi incentive currently active hota hai, wahi aapko App me dikhaya jata hai.\n\nAgar aapko detailed rate card dekhna hai, to aap Wiom CSP App me jaakar:\nMenu (3 lines) → Wiom Agreement section me check kar sakte hain — wahan aapko rate card mil jayega.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 28,
+      "category": "PayG Basic Understanding",
+      "triggers": [
+        "PayG kya hai?",
+        "Pay as you go kya hota hai?",
+        "PayG kaise kaam karta hai?",
+        "PayG ka basic samjhao"
+      ],
+      "response": "📂 Sub-Category: PayG Basic Understanding\n\nSir, PayG ka matlab hai Pay-as-you-go — yani jitne din ka recharge, utne din ka net.\n\nIski explanation video WhatsApp channel pe share ki ja chuki hai. Aap us channel ko open karke check karein. Agar usme kuch samajh nahi aata to aap pooch sakte hain.\n\nPehle customer sirf 28 din ka recharge karta tha, lekin ab unko flexibility mil rahi hai — woh 1 din, 2 din, 7 din ya 28 din ka recharge kar sakte hain.\n\nIsse customer apni zarurat ke hisaab se net use kar sakta hai.\n\nAapke kaam ya kamai par iska koi negative impact nahi hai — aapko Rs.300 ka commission system ke hisaab se milta rahega.\n\nPurane customers ko jab recharge karna hoga tab unko yeh option App me dikhega, aur naye customers PayG model par honge — iski information aapko system se mil jayegi.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 29,
+      "category": "Recovery & Fundamental Breach Queries",
+      "triggers": [
+        "Recovery kyu lagi?",
+        "1538 ya 2000 ka deduction kyu hua?",
+        "Principle breach kya hota hai?",
+        "Wallet se paisa kat gaya",
+        "Recovery amount kaise calculate hota hai?"
+      ],
+      "response": "📂 Sub-Category: Recovery & Fundamental Breach Queries\n\nSir, recovery tab lagti hai jab system ke defined principles ka breach hota hai aur system ko nuksaan hota hai.\n\nKuch samay pehle aapko 9 moolbhoot siddhant share kiye gaye the. Unme se do important hain:\n- Wiom se mile users ko hamesha Wiom system me hi rakha jaana chahiye\n- Netbox ka sahi tareeke se istemaal hona chahiye\n\nPrinciple 4 Breach (Rs.1538 recovery):\nAgar Netbox ka galat use hota hai — jaise ise apne network par chalana, kisi aur ko dena, kho dena ya damage karna.\n\nPrinciple 1 Breach (Rs.2000 recovery):\nAgar Wiom ke users ko system ke bahar chalaya jata hai ya directly apne network par shift kiya jata hai.\n\nYeh recovery system ke through calculate hoti hai aur sab CSPs par same tarah apply hoti hai. Iska amount CSP wallet se deduct hota hai, aur agar wallet me balance nahi hota to future earnings se adjust ho jata hai.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 30,
+      "category": "Request to Terminate Contract with Wiom",
+      "triggers": [
+        "Mujhe exit karna hai",
+        "Wiom ka contract khatam karna hai",
+        "Partnership terminate karni hai",
+        "Account band karna hai"
+      ],
+      "response": "📂 Sub-Category: Request to Terminate Contract with Wiom\n\nSir, samajh aa raha hai ki aap exit consider kar rahe hain.\n\nAgar yeh decision kisi specific issue — jaise leads, payout, support ya process — ki wajah se hai, to aap batayein, main us par aapko clarity de sakta hoon.\n\n(Pause — CSP ka response suno aur uske baad L2 ko ticket raise kardo)",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 31,
+      "category": "Running Customer Status Change Into Return",
+      "triggers": [
+        "Running customer return kyu show ho raha hai?",
+        "Customer abhi chal raha hai but status return",
+        "Netbox return mark kaise hoti hai?",
+        "Pickup ticket close hone ke baad return"
+      ],
+      "response": "📂 Sub-Category: Running Customer Status Change Into Return\n\nStep 1 — Netbox ID aur customer ka mobile number CSP se lo aur check karo ki koi pickup ticket close hui hai ya nahi.\n\nStep 2 — Agar pickup ticket close hui hai, to check karo ki ticket CSP side se close hui hai ya internal team se.\n\nCase A — Ticket CSP side se close hui:\n\"Jab aap pickup ticket successfully close kar dete hain, to Netbox system se automatically return mark ho jati hai.\"\n→ No ticket.\n\nCase B — Bina pickup ticket ke / internal team ne close ki:\n\"Sir/Madam, aapki complaint system me register kar di gayi hai. System dwara aapko callback aayega, kripya call zaroor receive karein.\"\n→ Raise ticket to L2.\n\nBackend (L2) Process:\nCSP ko inform karein ki aapki complaint aa gayi hai, uspe kaam chal raha hai. Jaise hi solve hota hai, aapko system se update mil jayega.",
+      "action_required": "CONDITIONAL_L2_TICKET"
+    },
+    {
+      "id": 32,
+      "category": "Sales Lead Insufficient",
+      "triggers": [
+        "Leads kam mil rahi hain",
+        "Sales leads insufficient hain",
+        "Pehle se kam leads aa rahi hain",
+        "Lead allocation kyu kam hai?"
+      ],
+      "response": "📂 Sub-Category: Sales Lead Insufficient\n\nSir, is sandarbh me aapko system ke through update diya gaya hoga. Kripya apna WhatsApp channel check karein — wahan leads related saari jankari share ki gayi hai 1 Feb 2026 ko.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 33,
+      "category": "SSID Not Showing",
+      "triggers": [
+        "SSID nahi dikh raha",
+        "WiFi name show nahi ho raha",
+        "Customer ka SSID missing hai"
+      ],
+      "response": "📂 Sub-Category: SSID Not Showing\n\nDevice ID aur customer ka mobile number CSP se mango aur L2 team ko ticket raise kardo.\n\nCSP ko bolo: \"Sir/Madam, aapki complaint system me register kar di gayi hai. System dwara aapko callback aayega, kripya call zaroor receive karein.\"\n\nBackend (L2) Process:\nSabse pehle CSP se check karwaya jata hai ki NetBox me internet properly kaam kar raha hai aur ISP par live aa raha hai ya nahi. Saath hi confirm kiya jata hai ki jo NetBox use ho raha hai wo approved hai, kyunki kuch cases me CSP unapproved NetBox use kar dete hain. Agar sab kuch sahi hone ke baad bhi issue resolve nahi hota, to case NQT team ke saath share kar diya jata hai further investigation ke liye.",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 34,
+      "category": "Status of Open Ticket",
+      "triggers": [
+        "Mera ticket ka status batao",
+        "Complaint ka kya hua?",
+        "Ticket resolve hua ya nahi?",
+        "Ticket ID se status check karo"
+      ],
+      "response": "📂 Sub-Category: Status of Open Ticket\n\nStep 1 — CSP se pucho ki unhone complaint kab register karwai thi.\n\nStep 2 — Ticket ID mango. Agar ticket ID available nahi hai, to pucho ki kis number se complaint register hui thi.\n\nStep 3 — Us registered number ko system (Kapture) me check karo aur ticket history ke basis par update do.\n\nStep 4 — Agar complaint resolved show hoti hai, to CSP se confirmation lo.\n\nStep 5 — Agar CSP batata hai ki issue resolve nahi hua, to ticket ko reopen karke inform karo: \"System ki taraf se aapko call receive hoga.\"",
+      "action_required": "CONDITIONAL_REOPEN"
+    },
+    {
+      "id": 35,
+      "category": "Wants Engineer Visit",
+      "triggers": [
+        "Mujhe Wiom engineer ki visit chahiye",
+        "Engineer visit arrange karo",
+        "Field engineer kab aayega?"
+      ],
+      "response": "📂 Sub-Category: Wants Engineer Visit\n\nPartner se reason pucho ki kya issue aa raha hai aur note karo.\n\nPhir bolo: \"Sir, Wiom engineer visit CSP ke request par directly arrange nahi hota. Aise cases system ke through internally review kiye jaate hain. Agar system ko lagta hai ki engineer visit required hai, to visit automatically arrange kiya jata hai. Iska update aapko system ke through hi milta hai. Is process ke bahar manual visit arrange nahi hota.\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 36,
+      "category": "Want to Change Franchise Name",
+      "triggers": [
+        "Franchise name change karna hai",
+        "Shop name update karna hai",
+        "Franchise ka naam badalna hai"
+      ],
+      "response": "📂 Sub-Category: Want to Change Franchise Name\n\nStep 1 — Probing: \"Sir/Madam, aap franchise name change kyu karna chahte hain?\" Reason properly note karo.\n\nStep 2 — Action: L2 team ke liye ticket raise karo. Ticket me proper reason mention karna mandatory hai.\n\nStep 3 — Communication: \"Sir/Madam, aapki request system me register kar di gayi hai. System dwara aapko callback aayega, kripya call zaroor receive karein.\"\n\nBackend (L2) Process:\n\"Sir/Madam, agar aap new business name se process kar rahe hain, to aapko apna business proof aur ISP agreement mail karna hoga.\"\n\n\"Yeh documents CSP dwara mail (CSP@wiom.in) kiye jaate hain verification ke liye.\"\n\n\"System se verification complete hone ke baad hi aage ka process proceed hota hai.\"\n\n\"Verification complete hone tak request pending rahegi.\"",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 37,
+      "category": "Want to Change Owner Registered Number",
+      "triggers": [
+        "Owner ka number change karna hai",
+        "Registered mobile number update karna hai",
+        "Owner mobile change kaise karu?"
+      ],
+      "response": "📂 Sub-Category: Want to Change Owner Registered Number\n\nStep 1 — Probing: \"Sir/Madam, aap owner mobile number change kyu karna chahte hain?\" Reason properly note karo.\n\nStep 2 — Action: L2 team ke liye ticket raise karo. Ticket me proper reason mention karna mandatory hai.\n\nStep 3 — Communication:\n\"Sir/Madam, aapko iske liye CSP@wiom.in par apni registered email ID se email karni hogi, for security purpose. Saath hi aapki complaint system me register kar di gayi hai. System dwara aapko callback aayega, kripya call zaroor receive karein.\"\n\nBackend (L2) Process:\nCSP ko apni registered email ID se CSP@wiom.in par mail bhejna hoga, jisme current number, new number, owner name, CSP/ISP ID aur reason mention hona chahiye.\n\nTeam email verify karke details cross-check karegi, aur sahi hone par number update karke confirmation de diya jayega.",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 38,
+      "category": "Wants to Change Owner Detail of Franchise",
+      "triggers": [
+        "Ownership change karna hai",
+        "Franchise ka owner change karna hai",
+        "Owner transfer karna hai"
+      ],
+      "response": "📂 Sub-Category: Wants to Change Owner Detail of Franchise\n\nStep 1 — Probing: \"Sir/Madam, aap ownership change kyu karna chahte hain?\" Reason properly note karo.\n\nStep 2 — Action: L2 team ke liye ticket raise karo. Ticket me proper reason mention karna mandatory hai.\n\nStep 3 — Communication: \"Sir/Madam, aapki complaint system me register kar di gayi hai. System dwara aapko callback aayega, kripya call zaroor receive karein.\"\n\nBackend (L2) Process:\n\"Sir/Madam, abhi ownership transfer ka process system par hold par hai.\"\n\n\"Agar existing owner ki mishappening ho gayi hai, to ownership transfer ke liye new owner ke documents required hote hain.\"\n\n\"Kripya neeche diye gaye documents mail karein:\n- Aadhar Card\n- PAN Card\n- ISP Agreement (New Owner ke naam se)\n- Bank Profile Page\n- Cancelled Cheque\n- Mobile Number\n- Email ID\"\n\n\"Ye sab details aapko email ke through share karni hogi: CSP@wiom.in\"\n\n\"Verification & Validation complete hone ke baad aapko update de diya jayega.\"",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 39,
+      "category": "Want to Know Where Is Lead",
+      "triggers": [
+        "Meri lead kaha gayi?",
+        "Lead App se gayab ho gayi",
+        "Mujhe lead expected thi, nahi mili",
+        "Lead allocation kaise hota hai?"
+      ],
+      "response": "📂 Sub-Category: Want to Know Where Is Lead\n\nProbing first:\n\"Sir, samajh aa raha hai ki aapko lag raha hai ki lead aapke App se gayab ho gayi hai. Ek baar main confirm kar leta hoon — kya yeh lead aapke App me pehle visible thi ya aap expect kar rahe the ki aapko milegi?\"\n\nPhir respond:\n\"Sir, lead booking aur allocation system ke process ke hisaab se hota hai. System sirf wahi maanta hai jo App me dikh raha aur us moment par valid hai. Is process me lead allocation ya ownership ka detail manually check ya share nahi kiya ja sakta.\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 40,
+      "category": "Wants to Remove Lead Manually",
+      "triggers": [
+        "Lead reject karni hai",
+        "Lead manually remove karna hai",
+        "Lead hatani hai",
+        "Lead cancel kaise karu?"
+      ],
+      "response": "📂 Sub-Category: Wants to Remove Lead Manually\n\nStep 1 — CSP se pucho ki wo lead reject kyu karna chahte hain.\nStep 2 — Reason properly note karo.\nStep 3 — CSP ko guide karo: \"Lead ke right side me 3 dots (vertical dots) dikh rahe honge.\"\nStep 4 — \"Un 3 dots par click karein.\"\nStep 5 — \"Waha 'Reject Lead' ka option show hoga.\"\nStep 6 — \"Us option par click karke aap lead reject kar sakte hain.\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 41,
+      "category": "Want to Know Status of Device Swapping",
+      "triggers": [
+        "Device swap ka status batao",
+        "Netbox swap kab hoga?",
+        "Swap request ka kya hua?"
+      ],
+      "response": "📂 Sub-Category: Want to Know Status of Device Swapping\n\nDevice ID (new ya old) aur customer ka mobile number CSP se mango aur L2 team ko raise karo.\n\nCSP ko bolo: \"Sir/Madam, aapki complaint system me register kar di gayi hai. System dwara aapko callback aayega, kripya call zaroor receive karein.\"\n\nBackend (L2) Process:\nPurpose: Old/New Netbox ID ko verify karna before any action (especially device swapping cases). Link: Device Swap – PTL Queue.\n\nStep 1: CSP se Old Netbox ID aur New Netbox ID (agar applicable ho) puchein.\nStep 2: Device Swapping Response Sheet me jaakar Netbox ID verify karein.\nStep 3: Check karein ki swapping request response sheet me available hai ya nahi.\nStep 4: Wiom Hub me Netbox ID search karke details verify karein.\nStep 5: Response Sheet aur Wiom Hub ki details cross-check karein.\nStep 6: Agar mismatch ho to CSP se dobara confirm karein.\nStep 7: Verification complete hone ke baad CSP ko final update share karein.\n\nImportant:\n- Dono jagah (Response Sheet + Wiom Hub) verification mandatory hai.\n- Sirf CSP input par rely na karein, system check zaroor karein.\n- Mismatch case me re-confirmation ya escalation karein.",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 42,
+      "category": "Check Device Status - Free or In Use",
+      "triggers": [
+        "Netbox free hai ya in use?",
+        "Device free kab hota hai?",
+        "Free-to-use kya hota hai?",
+        "Customer ka connection expire ho gaya, Netbox kab milega?"
+      ],
+      "response": "📂 Sub-Category: Check Device Status - Free or In Use\n\n\"Sir/Madam, aap bata sakte hain ki connection kab expire hua tha ya net kab khatam hua?\"\n\n\"Sir/Madam, connection ka net khatam hone ke 2 din baad Netbox free-to-use ho jata hai.\"\n\n\"Free-to-use ka matlab hai ki ab yeh Netbox reuse ho sakta hai aur next installation ke liye available hota hai.\"\n\n\"Sir/Madam, kya ab aapko process clear hai ya main aapki kisi aur tarah se help kar sakta/sakti hoon?\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 43,
+      "category": "How to Swap the Device",
+      "triggers": [
+        "Netbox swap kaise karu?",
+        "Device change ki request kaise raise karu?",
+        "Swap process kya hai?"
+      ],
+      "response": "📂 Sub-Category: How to Swap the Device\n\nStep 1 — CSP se pucho ki wo Netbox swap kyu karna chahte hain.\nStep 2 — Reason properly note karo.\nStep 3 — CSP ko inform karo ki unke WhatsApp par ek link aaya hoga.\nStep 4 — Guide karo: \"Us link ke through aap Netbox change/swap ki request raise kar sakte hain.\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 44,
+      "category": "Partner App Login Issue",
+      "triggers": [
+        "Partner Plus App me login nahi ho raha",
+        "App login issue",
+        "Owner login problem",
+        "Partner App kaise open karu?"
+      ],
+      "response": "📂 Sub-Category: Partner App Login Issue\n\nStep 1 — Partner se pucho ki aap Expert App use kar rahe hain ya Partner Plus App.\n\nStep 2 — Agar Expert App use kar rahe hain to inform karo: \"Expert App technician ke liye hota hai, aur aapko Partner Plus App se login karna hota hai.\"\n\nStep 3 — Agar Partner Plus App use kar rahe hain to login mobile number pucho.\n\nStep 4 — Wiom Hub par check karo: https://hub.i2e1.in/admin/user-search/partner — diya gaya number 'As Owner Registered' hai ya nahi.\n\nStep 5 — Agar number owner registered nahi hai, to partner ko registered owner number se login karne ke liye guide karo.\n\nStep 6 — Agar number owner registered hai aur phir bhi login issue aa raha hai, to error ke baare me partner se pucho aur L2 team ko ticket raise karo for resolution.\n\nBackend (L2) Process — Bug Front Raise:\nStep 1 — CSP se issue ki complete details lein.\nStep 2 — CSP se issue ka sample video/screen recording share karne ke liye bolein.\nStep 3 — Video me issue clearly visible hona chahiye.\nStep 4 — Issue details aur sample video attach karke Bug Front par complaint raise karein.\nStep 5 — Complaint ID/Ticket ID note karein aur CSP ko inform karein.",
+      "action_required": "CONDITIONAL_L2_TICKET"
+    },
+    {
+      "id": 45,
+      "category": "New Merchandise Request (T-shirt / Bag)",
+      "triggers": [
+        "T-shirt chahiye",
+        "Bag request karni hai",
+        "Merchandise kab milega?",
+        "Naye t-shirt bag ki request"
+      ],
+      "response": "📂 Sub-Category: New Merchandise Request (T-shirt / Bag)\n\nStep 1 — Partner se Partner ID verify karo.\n\nStep 2 — Eligibility Check Sheet me check karo ki partner eligible hai ya nahi.\n\nCase A — Partner Eligible:\n- Required quantity partner se confirm karo.\n- Quantity confirm karne ke baad Inventory Team (L2) ko ticket raise karo.\n\nCase B — Partner NOT Eligible:\n- CSP ko inform karo: \"Abhi aap eligible nahi hain.\"\n- Next eligible date (6 months calculate karke) batao aur inform karo: \"Us date ke baad dobara request raise kar sakte hain.\"\n\nBackend (L2) Process — Order Received Confirmation:\nStep 1 — CSP se confirm karein ki order receive hua hai ya nahi.\nStep 2 — If yes, ticket resolve karein.\nStep 3 — If no, ticket ko Inventory Team ke liye reopen karein.",
+      "action_required": "CONDITIONAL_L2_TICKET"
+    },
+    {
+      "id": 46,
+      "category": "Expert App Login Issue (Rohit)",
+      "triggers": [
+        "Expert App me login nahi ho raha",
+        "Rohit ka login issue",
+        "Technician App me dikkat",
+        "Expert App problem"
+      ],
+      "response": "📂 Sub-Category: Expert App Login Issue (Rohit)\n\nStep 1 — Rohit se pucho ki aap Expert App use kar rahe hain ya Partner Plus App.\n\nStep 2 — Agar Partner Plus App use kar rahe hain to inform karo: \"Partner Plus App Owner ke liye hota hai, aur aapko Expert App se login karna hoga.\"\n\nStep 3 — Agar Expert App use kar rahe hain to login mobile number pucho.\n\nStep 4 — Wiom Hub par check karo: https://hub.i2e1.in/admin/user-search/partner — diya gaya number 'As Technician Registered' hai ya nahi.\n\nStep 5 — Agar number Technician registered nahi hai, to Rohit ko registered technician number se login karne ke liye guide karo.\n\nStep 6 — Agar number Technician registered hai aur phir bhi login issue aa raha hai, to error ke baare me technician se pucho aur L2 team ko ticket raise karo.\n\nBackend (L2) Process — Bug Front Raise:\nStep 1 — CSP se issue ki complete details lein.\nStep 2 — CSP se issue ka sample video/screen recording share karne ke liye bolein.\nStep 3 — Video me issue clearly visible hona chahiye.\nStep 4 — Issue details aur sample video attach karke Bug Front par complaint raise karein.\nStep 5 — Complaint ID/Ticket ID note karein aur CSP ko inform karein.",
+      "action_required": "CONDITIONAL_L2_TICKET"
+    },
+    {
+      "id": 47,
+      "category": "Router / ONT Login Credential Required",
+      "triggers": [
+        "Router login credential chahiye",
+        "ONT IP / password chahiye",
+        "Router login kaise karu?",
+        "ONT credentials kaha milenge?"
+      ],
+      "response": "📂 Sub-Category: Router / ONT Login Credential Required\n\nStep 1 — CSP ko WhatsApp par Router/ONT Login Credential details share karo.\nStep 2 — CSP ko inform karo: \"Complete information aapke WhatsApp par bhej di gayi hai.\"\nStep 3 — Agar CSP ko IP ya login se related koi doubt ho:\n- Properly guide karo\n- Steps / rules explain karo\n- Ensure karo ki CSP shared details follow kare",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 48,
+      "category": "Rohit Lottery",
+      "triggers": [
+        "Rohit lottery me error aa raha hai",
+        "Rohit lottery ka issue",
+        "Lottery claim nahi ho rahi (Rohit)"
+      ],
+      "response": "📂 Sub-Category: Rohit Lottery\n\nError pucho aur properly note karo. Phir L2 team ke liye ticket generate kardo.\n\nCSP ko bolo: \"Sir/Madam, aapki complaint system me register kar di gayi hai. System dwara aapko callback aayega, kripya call zaroor receive karein.\"\n\nBackend (L2) Process — Verification Steps:\n- Details lekar verification karein.\n- Check karein ki task SLA ke andar time par close hua hai ya nahi.\n- Verify karein ki task reopen to nahi hua hai.\n- Ensure karein ki saari details properly filled hain.\n- Power level check karein (range -8 se -25 ke beech hona chahiye).\n- Check karein ki customer ne rating di hai ya nahi.\n\nFinal Action:\nAgar sab kuch sahi paya jata hai aur phir bhi lottery claim nahi ho pa raha hai:\n- Bug Front par ticket raise karein.\n- CSP ko same update clearly inform karein.",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 49,
+      "category": "Device Inventory Request",
+      "triggers": [
+        "Maine inventory request raise ki, kab milegi?",
+        "Inventory request ka status kya hai?",
+        "Devices kab aayenge?"
+      ],
+      "response": "📂 Sub-Category: Device Inventory Request\n\nPartner se pucho ki unhone inventory request kab raise ki thi.\n\nCase A — Aaj ya kal raise ki:\n\"Sir, status aap apne Partner Plus App me check kar sakte hain.\"\n→ No ticket.\n\nCase B — 3 din ya usse zyada ho gaye:\n\"Sir, aapki shikayat system me darj kar di gayi hai. System dwara aapko update mil jayega.\"\n→ Raise ticket to L2.\n\nBackend (L2) Process:\nStep 1 — CSP se Company Name aur Registered Mobile Number lein:\n\"Sir/Madam, kripya apna Company Name aur Registered Mobile Number share karein, taaki main aapka inventory request status check kar saku.\"\n\nStep 2 — Status Check (Wiom Hub + Inventory Sheet) me dekho. Important columns:\n- Order WH Remarks → Confirm / Reject\n- Order Confirmation → Reject reason\n- Qty → Ordered quantity\n- Order Raised On → Date\n- Shipment No → Tracking details\n- Expected Delivery → Timeline\n- Delivery Status → Delivered / Pending\n\nIf Order Dispatched / In Transit:\n\"Sir, aapka order dispatch ho chuka hai, delivery aapko expected timeline ke andar mil jaayegi.\"\n\nStep 3 — If Order Rejected:\nReject reason check karein.\n\"Sir, aapka order reject hua tha, reason hai — [reason].\"",
+      "action_required": "CONDITIONAL_L2_TICKET"
+    },
+    {
+      "id": 50,
+      "category": "Recharge Commission Issue",
+      "triggers": [
+        "Recharge ka commission nahi mila",
+        "Recharge bonus credit nahi hua",
+        "ISP recharge ka payout missing",
+        "Recharge ke baad paisa nahi aaya"
+      ],
+      "response": "📂 Sub-Category: Recharge Commission Issue\n\nCustomer ka detail, Netbox ID aur mobile number pucho aur L2 team ke liye ticket raise karo.\n\nCSP ko bolo: \"Sir/Madam, aapki complaint system me register kar di gayi hai. System dwara aapko callback aayega, kripya call zaroor receive karein.\"\n\nBackend (L2) Process:\n- Customer ki details lekar HUB me check karein.\n- ISP recharge payout status system me verify karein.\n- Check karein ki payout receive hua hai ya pending hai.\n- System me payout ka time (cycle) check karein.\n- Agar payout system me show ho raha hai lekin claim nahi hua: CSP ko payout claim karne ke liye guide karein.\n- Agar payout abhi due nahi hai: CSP ko expected payout date inform karein aur payout cycle explain karein. Saath hi system me jo ISP ticket ka time show ho raha hai, wo bhi inform karein.\n\nInformation to share with CSP:\n\"Sir, aapka payout hamesha rate card ke hisaab se 30-day recharge cycle par hi hota hai. Isme koi change nahi hai, calculation system ke through hota hai. Saari details aapko WIOM CSP App ke rate card me mil jayengi. Aapka payout time system me [mention time] show ho raha hai.\"",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 51,
+      "category": "Customer Plan Upgradation",
+      "triggers": [
+        "PayG me plan upgrade kar sakte hain?",
+        "Customer ka plan badal sakte hain?",
+        "Plan downgrade kaise hota hai?",
+        "Customer ko bada plan chahiye"
+      ],
+      "response": "📂 Sub-Category: Customer Plan Upgradation\n\n\"Sir/Madam, PayG model me aap jitne din chahein utne din ka recharge kar sakte hain, yeh fully flexible hai.\"\n\nPolicy:\n\"Is model me plan upgrade ya downgrade ka option available nahi hota.\"\n\nGuidance:\n\"Customer apni requirement ke hisaab se directly recharge duration select karke recharge kar sakte hain.\"\n\nSupport (if needed):\n\"Agar customer ko aur detail chahiye ho to customer care se bhi contact kar sakte hain.\"\n\nClosing:\n\"Sir/Madam, kya main aapki aur kisi cheez me help kar sakta hoon?\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 52,
+      "category": "Wants to Know Customer Detail",
+      "triggers": [
+        "Customer ka number do",
+        "Customer details chahiye",
+        "Customer ka address batao",
+        "Customer ki info kaha milegi?"
+      ],
+      "response": "📂 Sub-Category: Wants to Know Customer Detail\n\nCSP ko guide karo ki customer se related saari details WIOM CSP App me available hoti hain.\n\nBolo: \"Required details App me check karein.\"\n\nAgar CSP additional details mange to politely mana karo.\n\nInform karo: \"Direct customer ya internal team contact details share nahi ki ja sakti.\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 53,
+      "category": "Want to Know ISP Detail of Customer",
+      "triggers": [
+        "ISP detail customer ki kaha milegi?",
+        "PPPOE ID kaha hai?",
+        "ISP ID dikh nahi rahi",
+        "Customer ka ISP kaun sa hai?"
+      ],
+      "response": "📂 Sub-Category: Want to Know ISP Detail of Customer\n\nPartner ko inform karo ki ISP detail, ISP Ticket aur Service Ticket me mention hoti hai.\n\nGuide karo: \"ISP ID aap waha se check kar sakte hain.\"\n\nCase A — Partner ke paas Service Ticket / ISP Ticket nahi hai:\n\"Call ke baad WhatsApp par details share kar di jayengi.\"\n→ No ticket.\n\nCase B — Service Ticket aur ISP Ticket me PPPOE ID show nahi ho rahi:\n\"Aapka issue note kiya ja raha hai aur system dwara update share kar diya jayega.\"\n→ Raise ticket to L2.\n\nBackend (L2) Process:\nL2 Team concern ko Bug Front par raise karegi.\n\nPartner ko unblock karne ke liye jis user ki detail partner ne maangi hai, uski PPPOE ID share ki jayegi.",
+      "action_required": "CONDITIONAL_L2_TICKET"
+    },
+    {
+      "id": 54,
+      "category": "Informing About Outage (Detailed Process)",
+      "triggers": [
+        "Outage process detail me batao",
+        "Network down handling process",
+        "Multiple customers internet down",
+        "Area me net nahi chal raha"
+      ],
+      "response": "📂 Sub-Category: Informing About Outage (Detailed Process)\n\nStep 1 — Issue Confirmation:\nPucho:\n- \"Sir/Madam, kya multiple customers ka internet down hai?\"\n- \"Kya pura area impact ho raha hai ya sirf specific customer?\"\n\nStep 2 — System Working Explain karo:\n- Wiom system har customer Netbox ko 5 minute me ek baar check karta hai.\n- Agar 15 minute tak router respond nahi karta, tab system outage consider karta hai.\n- Complaint ya PTL call se outage trigger nahi hota.\n- Agar upstream ISP down hota hai aur routers unreachable ho jate hain, to outage automatically create ho jata hai.\n\nStep 3 — Customer Alert Process Explain karo:\n- Sirf unhi customers ko alert jata hai jinke Netbox actually down hote hain.\n- System ek outage me maximum 2 messages aur ek din me bhi maximum 2 messages bhejta hai.\n- Agar customer ko outage alert receive nahi hua tha, to resolution message bhi nahi jata.\n\nStep 4 — Outage Closure:\n- Jab 90% routers ka connectivity issue resolve ho jata hai, tab incident automatically close ho jata hai.\n- Alert me down Netbox count mention hota hai jisse field planning ki ja sakti hai.\n\nStep 5 — Customer Communication Guidance:\nAgar CSP puche customer ko kya batana hai, to guide karo:\n\"Abhi network issue chal raha hai. Jaise hi service theek hogi, internet normal ho jayega.\"\nCSP ko exact resolution timeline commit na karne ke liye guide karo. Inform karo ki system latest update automatically customer ko share karta hai.\n\nStep 6 — SLA / Rating / Payout Clarification:\n- Outage communication system payout ya rating se linked nahi hai.\n- Service ticket issue resolve hone tak close nahi hota.\n- SLA system-defined rules ke according calculate hota hai.\n- SLA threshold 80% rakha gaya hai taaki outage impact automatically cover ho sake.\n\nStep 7 — Benefit:\n- Customers ko timely updates milte hain.\n- Repeated customer calls kam hote hain.\n- CSP fixing work par better focus kar sakte hain.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 55,
+      "category": "Want to Know Plan Details",
+      "triggers": [
+        "Customer ka plan kya hai?",
+        "Plan details kaha dekhu?",
+        "Customer ka recharge plan batao"
+      ],
+      "response": "📂 Sub-Category: Want to Know Plan Details\n\nCSP ko inform karo ki customer related saari information system ke through available hoti hai.\n\nGuide karo: \"Required details WIOM CSP App me check karein.\"\n\nBolo: \"Customer ko bhi unki related information unke App me available hoti hai.\"\n\nAgar CSP additional details mange, to politely deny karo. System-based access follow karne ke liye guide karo.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 56,
+      "category": "Unable to Transfer Amount",
+      "triggers": [
+        "Wallet se paisa transfer nahi ho raha",
+        "Amount transfer issue",
+        "Payout transfer nahi ho raha",
+        "Bank me paisa nahi aaya"
+      ],
+      "response": "📂 Sub-Category: Unable to Transfer Amount\n\nStep 1 — Call date check karo ki 1st ya 16th hai ya nahi.\n\nCase A — Call date 1st ya 16th hai:\nCSP ko wallet maintenance ke baare me inform karo.\n→ No ticket.\n\nCase B — Date 1st / 16th ke alawa hai:\nCheck karo ki unka account Wiom Hub me added hai ya nahi.\n- Agar account added hai:\n  → Raise ticket to L2.\n  → Partner ko inform karo: \"Aapki shikayat darj kar li gayi hai aur system dwara update share kar diya jayega.\"\n- Agar account added nahi hai:\n  → Partner ko account addition ka process samjhao.\n\nBackend (L2) Process:\n- Case ko Bug Front par photo ke saath raise karein.\n- Agar account freeze hai, to concern team se discuss karke freeze ka reason aur solution share karein.",
+      "action_required": "CONDITIONAL_L2_TICKET"
+    },
+    {
+      "id": 57,
+      "category": "Status of Bank Account Update",
+      "triggers": [
+        "Bank account update ka status kya hai?",
+        "Account addition kab hoga?",
+        "Account update approved hua ya reject?"
+      ],
+      "response": "📂 Sub-Category: Status of Bank Account Update\n\nStep 1 — CSP se confirm karo ki unhone form kab fill kiya tha.\n\nStep 2 — Tracker me details check karo:\nhttps://docs.google.com/spreadsheets/d/1evaF4SlyCor4o3TntLx886PAp910ZcwhbliaQTaG9Uc/edit?gid=836223625#gid=836223625\n\nCheck karo ki request Approved / Rejected / Pending hai.\n\nCase A — Approved / Rejected:\n- CSP ko status confirm karo.\n- Inform karo: \"Update aapko email par bhi mil chuka hoga.\"\n\nCase B — Pending:\n- CSP ko expected timeline batao.\n- Inform karo: \"Account addition sirf Monday, Wednesday aur Friday ko process hota hai.\"\n\nImportant Points (note for agent):\n- Account addition sirf Mon / Wed / Fri ko hota hai.\n- Approval / Rejection ka update CSP ko email par mil jata hai.\n- Email ID wahi hoti hai jo form fill karte waqt use ki gayi thi.\n- Pending case me proper timeline communicate karna zaruri hai.",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 58,
+      "category": "Want to Generate Device Pickup TT",
+      "triggers": [
+        "Device pickup ticket kaise banaye?",
+        "Pickup TT manually generate karu?",
+        "Customer expire ho gaya, pickup kaise?",
+        "Netbox pickup ticket nahi aaya"
+      ],
+      "response": "📂 Sub-Category: Want to Generate Device Pickup TT\n\nDevice pickup ticket system dwara automatically generate hoti hai.\n\nCSP ko pucho:\n\"Sir/Madam, kya aap bata sakte hain ki connection kab expire hua tha ya internet kab khatam hua tha?\"\n\nInform karo:\n\"Sir/Madam, connection ka data/net khatam hone ke 2 din baad Netbox free-to-use ho jata hai.\"\n\nMeaning samjhao:\n\"Iska matlab hai ki ab yeh Netbox reuse ho sakta hai aur next installation ke liye available hota hai.\"\n\nEnd me confirmation lo:\n\"Sir/Madam, kya ab aapko process clear hai ya main kisi aur tarah se help kar sakta/sakti hoon?\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 59,
+      "category": "Want Partnership of Wiom (Expansion)",
+      "triggers": [
+        "Mujhe Wiom partnership leni hai",
+        "New CSP banna hai",
+        "Franchise kaise loon?",
+        "CSP expansion ka kya status?"
+      ],
+      "response": "📂 Sub-Category: Want Partnership of Wiom (Expansion)\n\n\"Sir, filhaal CSPship expansion pause par hai. Main aapki city details note karke request raise kar deta hoon. Jaise hi expansion dobara start hoga, aapko priority par contact kiya jayega. Abhi ke liye koi exact timeline share nahi ki ja sakti hai.\"",
+      "action_required": "NO_TICKET"
+    },
+    {
+      "id": 60,
+      "category": "Device Pickup TT Catch (Bonus)",
+      "triggers": [
+        "Pickup ticket ka bonus nahi mila",
+        "Device catch ka claim bonus nahi aaya",
+        "Earn money me claim bonus dikh nahi raha"
+      ],
+      "response": "📂 Sub-Category: Device Pickup TT Catch (Bonus)\n\nStep 1 — CSP ko guide karo: \"CSP App ke Report Card section me Netbox catch rate check karein.\"\n\nStep 2 — Inform karo: \"Detailed policy Wiom Agreement → Rate Card section me available hai, waha se eligibility check ki ja sakti hai.\"\n\nStep 3 — CSP ka catch rate verify karo.\n\nCase A — Catch rate >= 80%:\n- CSP ko Earn Money section check karne ke liye bolo.\n- Verify karo ki 'Claim Bonus' option show ho raha hai ya nahi.\n  - Agar 'Claim Bonus' option show ho raha hai:\n    Guide karo bonus claim karne ke liye. Inform karo: \"Claim karne ke baad amount wallet me credit ho jata hai.\"\n    → No ticket.\n  - Agar kuch bhi show nahi ho raha:\n    → Raise ticket to L2.\n    → Partner ko inform karo: \"Aapki complaint register kar li gayi hai aur system dwara update share kar diya jayega.\"\n\nCase B — Catch rate < 80%:\n- Eligibility criteria meet nahi hota — guide karo Rate Card check karne ke liye.\n→ No ticket.\n\nBackend (L2) Process:\n- CSP ko guide karein ki wo CSP App ke Report Card section me NetBox catch rate check karein.\n- CSP ko batayein ki detailed policy Wiom Agreement → Rate Card section me available hai.\n- CSP ka catch rate verify karein.\n\nAgar catch rate >= 80%:\n- CSP ko Earn Money section check karne ko bolein.\n- Verify karein ki 'Claim Bonus' option show ho raha hai ya nahi.\n  - Agar Claim Bonus show ho raha hai: CSP ko claim karne ke liye guide karein. Inform karein ki claim karne par amount wallet me credit ho jata hai.\n  - Agar kuch bhi show nahi ho raha: Issue ka Bug Front me raise karein aur CSP ko update share karein.",
+      "action_required": "CONDITIONAL_L2_TICKET"
+    },
+    {
+      "id": 61,
+      "category": "Customer Mobile Number Update",
+      "triggers": [
+        "Customer ka number change karna hai",
+        "Customer mobile number update",
+        "Customer ka phone change karna hai"
+      ],
+      "response": "📂 Sub-Category: Customer Mobile Number Update\n\nCSP se issue confirm karo (customer number change / recharge / Address update option not showing / similar request).\n\nCSP ko inform karo ki yeh customer-related issue hai aur Customer Care dwara handle kiya jata hai.\n\nGuide karo: \"Aap customer ko Customer Care par reach out karne ke liye bolein.\"\n\nClearly communicate karo:\n\"CSP Trustline sirf partner se judi issues ke liye hai. Customer-related requests yahan handle nahi hoti hain.\"\n\nCall close karte time ensure karo ki CSP ko proper direction mil gaya hai.\n\nSaath hi ek ticket L2 ke liye raise kardo.\n\nBackend (L2) Process:\nL2 Team will share the ticket with PTL to Cx (Customer Care).",
+      "action_required": "L2_TICKET"
+    },
+    {
+      "id": 62,
+      "category": "Customer Unable to Recharge",
+      "triggers": [
+        "Customer recharge nahi kar pa raha",
+        "Customer ka recharge fail ho raha hai",
+        "Recharge option show nahi ho raha customer ko",
+        "Address update option nahi dikh raha customer ke App me"
+      ],
+      "response": "📂 Sub-Category: Customer Unable to Recharge\n\nCSP se issue confirm karo (customer number change / recharge / Address update option not showing / similar request).\n\nCSP ko inform karo ki yeh customer-related issue hai aur Customer Care dwara handle kiya jata hai.\n\nGuide karo: \"Aap customer ko Customer Care par reach out karne ke liye bolein.\"\n\nClearly communicate karo:\n\"CSP Trustline sirf partner se judi issues ke liye hai. Customer-related requests yahan handle nahi hoti hain.\"\n\nCall close karte time ensure karo ki CSP ko proper direction mil gaya hai.\n\nSaath hi ek ticket L2 ke liye raise kardo.\n\nBackend (L2) Process:\nL2 Team will share the ticket with PTL to Cx (Customer Care).",
+      "action_required": "L2_TICKET"
+    }
+  ]
+}

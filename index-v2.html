@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WIOM Training — Split View</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/v2.css" />
+  <link rel="stylesheet" href="css/auth.css" />
+</head>
+<body class="v2-body">
+
+  <header class="topbar">
+    <div>
+      <div class="logo">WI<span>OM</span></div>
+      <div class="tagline">Ghar Wala Net • Split View</div>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <a href="index.html" class="nav-link">Card View</a>
+      <a href="#reset" class="nav-link" id="resetLinkV2">Reset</a>
+    </div>
+  </header>
+
+  <div class="v2-shell">
+
+    <aside class="v2-sidebar">
+      <div class="v2-sidebar-head">
+        <div class="v2-greet" id="v2Greet">Namaste 👋</div>
+        <div class="v2-date" id="v2Date">—</div>
+        <div class="v2-progress-summary" id="v2ProgressSummary">
+          <span id="v2DoneCount">0</span> / <span id="v2TotalCount">0</span> complete
+        </div>
+        <input type="text" id="v2Search" class="v2-search" placeholder="🔍 Search category..." />
+      </div>
+      <div class="v2-cat-list" id="v2CatList"></div>
+    </aside>
+
+    <main class="v2-main">
+      <div id="v2RightPane">
+        <div class="v2-empty">
+          <div class="v2-empty-emoji">👈</div>
+          <h2>Left side se koi category select karein</h2>
+          <p>SOP, objection handling aur quiz yahan dikhenge.</p>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app-v2.js"></script>
+</body>
+</html>

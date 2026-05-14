@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel — WIOM Training</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/auth.css" />
+</head>
+<body class="admin-body">
+
+  <header class="topbar">
+    <div>
+      <div class="logo">WI<span>OM</span></div>
+      <div class="tagline">Admin Panel</div>
+    </div>
+  </header>
+
+  <main class="admin-container">
+
+    <div class="admin-stats">
+      <div class="stat-card">
+        <div class="stat-label">Total Agents</div>
+        <div class="stat-value" id="statAgents">0</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Assigned</div>
+        <div class="stat-value" id="statAssigned">0</div>
+      </div>
+      <div class="stat-card amber">
+        <div class="stat-label">Topics Total</div>
+        <div class="stat-value" id="statTopics">0</div>
+      </div>
+      <div class="stat-card violet">
+        <div class="stat-label">Quizzes Passed</div>
+        <div class="stat-value" id="statPasses">0</div>
+      </div>
+    </div>
+
+    <section class="admin-section">
+      <h2>
+        <span>👥 Agents</span>
+        <span style="display:flex;gap:14px;align-items:center;">
+          <button class="assign-btn" id="addAgentBtn" style="background:#10B981;">+ Add Agent</button>
+          <a href="index.html" style="font-size:13px;font-weight:500;color:#2563EB;text-decoration:none;">→ View as Agent</a>
+        </span>
+      </h2>
+      <table class="admin-table" id="agentsTable">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Name</th>
+            <th>Role</th>
+            <th>Assigned</th>
+            <th>Progress</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="agentsTbody">
+          <tr><td colspan="6" style="text-align:center;color:#6B7280;padding:24px;">No agents yet — agents login karenge to yahan dikhenge.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <!-- Assignment modal -->
+  <div class="modal-overlay hidden" id="assignModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Topics Assign Karein — <span id="modalAgentName"></span></h3>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="bulk-actions">
+          <button class="bulk-btn" id="selectAll">Select All</button>
+          <button class="bulk-btn" id="selectNone">Clear All</button>
+          <button class="bulk-btn" id="selectL1">Only L1</button>
+        </div>
+        <div class="assign-grid" id="assignGrid"></div>
+      </div>
+      <div class="modal-foot">
+        <span class="selected-count" id="selectedCount">0 selected</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" id="modalCancel">Cancel</button>
+          <button class="btn btn-primary" id="modalSave">Save Assignment</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add agent modal -->
+  <div class="modal-overlay hidden" id="addAgentModal">
+    <div class="modal-card" style="max-width:480px;">
+      <div class="modal-head">
+        <h3>+ Naya Agent Add Karein</h3>
+        <button class="modal-close" id="addAgentClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <label style="display:block;font-size:13px;font-weight:600;color:#1F2937;margin-bottom:6px;">
+          WIOM Email <span style="color:#DC2626;">*</span>
+        </label>
+        <input type="email" id="newAgentEmail" placeholder="agent.name@wiom.in"
+          style="width:100%;padding:12px 14px;border:2px solid #E5E7EB;border-radius:10px;font-size:15px;outline:none;margin-bottom:14px;" />
+
+        <label style="display:block;font-size:13px;font-weight:600;color:#1F2937;margin-bottom:6px;">
+          Naam (optional)
+        </label>
+        <input type="text" id="newAgentName" placeholder="Email se auto-derive hoga agar blank chhoda"
+          style="width:100%;padding:12px 14px;border:2px solid #E5E7EB;border-radius:10px;font-size:15px;outline:none;margin-bottom:8px;" />
+
+        <div id="addAgentError" style="color:#DC2626;font-size:13px;min-height:18px;margin-top:8px;"></div>
+      </div>
+      <div class="modal-foot">
+        <span class="selected-count">Save ke baad aap topics assign kar sakte ho</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" id="addAgentCancel">Cancel</button>
+          <button class="btn btn-primary" id="addAgentSave">Save & Assign Topics →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress detail modal -->
+  <div class="modal-overlay hidden" id="progressModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Quiz Progress — <span id="progressAgentName"></span></h3>
+        <button class="modal-close" id="progressClose">✕</button>
+      </div>
+      <div class="modal-body" id="progressBody"></div>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

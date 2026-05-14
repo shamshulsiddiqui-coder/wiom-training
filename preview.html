@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WIOM Training Portal</title>
+  <style>
+    /* ============ WIOM — REFRESHER TRAINING ============ */
+    :root {
+      --pink:        #EC008C;
+      --pink-dark:   #B8006F;
+      --pink-soft:   #FFE3F0;
+      --pink-line:   #FFB6D9;
+      --pink-tint:   #FFF0F7;
+
+      --ink:         #111827;
+      --ink-2:       #374151;
+      --muted:       #6B7280;
+      --muted-2:     #9CA3AF;
+
+      --bg:          #F9FAFB;
+      --surface:     #FFFFFF;
+      --line:        #E5E7EB;
+      --line-soft:   #F3F4F6;
+
+      --green:       #047857;
+      --green-bg:    #ECFDF5;
+      --amber:       #B45309;
+      --amber-bg:    #FFFBEB;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      font-family: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-feature-settings: "cv11", "ss01";
+      -webkit-font-smoothing: antialiased;
+      color: var(--ink);
+      background: var(--bg);
+      min-height: 100vh;
+    }
+
+    /* ---------- TOP BAR ---------- */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      width: 32px; height: 32px;
+      background: var(--pink);
+      color: white;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px;
+      letter-spacing: 0.5px;
+    }
+    .brand-text { line-height: 1.2; }
+    .brand-text .name { font-weight: 700; font-size: 15px; color: var(--ink); letter-spacing: -0.2px; }
+    .brand-text .sub  { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+    .user-block { display: flex; align-items: center; gap: 16px; }
+    .user-block .help-link {
+      font-size: 13px; color: var(--muted);
+      text-decoration: none;
+    }
+    .user-block .help-link:hover { color: var(--pink); }
+    .avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--pink-soft);
+      color: var(--pink-dark);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 13px;
+      border: 1px solid var(--pink-line);
+    }
+    .user-name { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+
+    /* ---------- PAGE HEADER ---------- */
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 36px 40px 60px;
+    }
+    .page-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 28px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    .page-head h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      color: var(--ink);
+    }
+    .page-head .lede {
+      color: var(--muted);
+      font-size: 14px;
+      margin-top: 6px;
+    }
+    .progress-block {
+      text-align: right;
+      min-width: 260px;
+    }
+    .progress-num {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.3px;
+    }
+    .progress-num em {
+      color: var(--pink);
+      font-style: normal;
+    }
+    .progress-lbl {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .progress-bar {
+      width: 260px;
+      height: 6px;
+      background: var(--line-soft);
+      border-radius: 50px;
+      overflow: hidden;
+      margin-left: auto;
+    }
+    .progress-bar > span {
+      display: block;
+      height: 100%;
+      background: var(--pink);
+      border-radius: 50px;
+    }
+
+    /* ---------- CARD GRID ---------- */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 20px;
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .card:hover {
+      border-color: var(--pink-line);
+      box-shadow: 0 4px 14px rgba(190, 24, 93, 0.06);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .pill {
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--line-soft);
+      color: var(--muted);
+    }
+    .pill.level { background: var(--pink-tint); color: var(--pink-dark); }
+
+    .status {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 600;
+    }
+    .status .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+    }
+    .status.done   { color: var(--green); }
+    .status.done .dot   { background: var(--green); }
+    .status.open   { color: var(--pink); }
+    .status.open .dot   { background: var(--pink); animation: pulse 1.8s infinite; }
+    .status.locked { color: var(--muted-2); }
+    .status.locked .dot { background: var(--muted-2); }
+    .status.retry  { color: var(--amber); }
+    .status.retry .dot  { background: var(--amber); }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(190, 24, 93, 0.4); }
+      50%      { box-shadow: 0 0 0 5px rgba(190, 24, 93, 0); }
+    }
+
+    .card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.4;
+      color: var(--ink);
+      margin-bottom: 4px;
+      letter-spacing: -0.1px;
+    }
+    .card .cat-id {
+      font-size: 11.5px;
+      color: var(--muted);
+      font-weight: 500;
+      margin-bottom: 14px;
+      letter-spacing: 0.2px;
+    }
+    .meta {
+      display: flex; gap: 14px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 16px;
+      padding: 10px 0;
+      border-top: 1px solid var(--line-soft);
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .meta-item { display: flex; align-items: center; gap: 5px; }
+    .meta-item strong { color: var(--ink-2); font-weight: 600; }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: auto;
+    }
+    .score-text {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .score-text strong { color: var(--green); font-weight: 700; }
+    .score-text strong.fail { color: var(--amber); }
+
+    .btn {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: -0.1px;
+      font-family: inherit;
+    }
+    .btn.primary {
+      background: var(--pink);
+      color: white;
+      border-color: var(--pink);
+    }
+    .btn.primary:hover { background: var(--pink-dark); border-color: var(--pink-dark); }
+    .btn.ghost {
+      background: var(--surface);
+      color: var(--ink-2);
+      border-color: var(--line);
+    }
+    .btn.ghost:hover { border-color: var(--pink-line); color: var(--pink-dark); }
+    .btn.disabled {
+      background: var(--line-soft);
+      color: var(--muted-2);
+      border-color: var(--line);
+      cursor: not-allowed;
+    }
+
+    /* ---------- LOCKED STATE ---------- */
+    .card.locked {
+      cursor: default;
+      background: #FAFAFA;
+    }
+    .card.locked:hover {
+      border-color: var(--line);
+      box-shadow: none;
+      transform: none;
+    }
+    .card.locked h3, .card.locked .cat-id { color: var(--muted); }
+    .card.locked .pill.level { background: var(--line-soft); color: var(--muted); }
+    .card.locked .lock-note {
+      font-size: 11.5px;
+      color: var(--muted);
+      display: flex; align-items: center; gap: 5px;
+    }
+
+    /* ---------- SECTION HEADER ---------- */
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .section-head h2 {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-2);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .section-head .count {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ---------- FOOTER ---------- */
+    .footer {
+      text-align: center;
+      padding: 28px;
+      color: var(--muted-2);
+      font-size: 12px;
+      border-top: 1px solid var(--line);
+      margin-top: 40px;
+    }
+
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">W</div>
+      <div class="brand-text">
+        <div class="name">WIOM Training</div>
+        <div class="sub">Agent Refresher Portal</div>
+      </div>
+    </div>
+    <div class="user-block">
+      <a href="#" class="help-link">Help</a>
+      <span class="user-name">Rahul Kumar</span>
+      <div class="avatar">RK</div>
+    </div>
+  </header>
+
+  <main class="page">
+
+    <div class="page-head">
+      <div>
+        <h1>Refresher Training</h1>
+        <div class="lede">SOP padhein, objection handling samjhein, fir quiz me <strong>100%</strong> score karein — tabhi agli category unlock hogi.</div>
+      </div>
+      <div class="progress-block">
+        <div class="progress-lbl">Overall Progress</div>
+        <div class="progress-num"><em>2</em> / 8 completed</div>
+        <div class="progress-bar"><span style="width: 25%"></span></div>
+      </div>
+    </div>
+
+    <div class="section-head">
+      <h2>Your Categories</h2>
+      <span class="count">8 total · 2 complete · 1 retry · 1 active · 4 locked</span>
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+  </main>
+
+  <div class="footer">
+    WIOM Training Portal · v0.2
+  </div>
+
+  <script>
+    const SAMPLE = [
+      { id: "PS01", name: "Partner Complaint Against Partner", level: "L1", steps: 4, obj: 4, status: "done",   score: 100 },
+      { id: "PS02", name: "PayG Speed Upgrade",                 level: "L1", steps: 5, obj: 3, status: "done",   score: 100 },
+      { id: "PS03", name: "Network Down Complaint",             level: "L1", steps: 6, obj: 5, status: "retry",  score: 92  },
+      { id: "PS04", name: "Recharge Failed Issue",              level: "L1", steps: 4, obj: 4, status: "open"               },
+      { id: "PS05", name: "New Connection Request",             level: "L1", steps: 5, obj: 3, status: "locked"             },
+      { id: "PS06", name: "Router Configuration Help",          level: "L1", steps: 5, obj: 4, status: "locked"             },
+      { id: "PS07", name: "Escalation Handling",                level: "L2", steps: 6, obj: 5, status: "locked"             },
+      { id: "PS08", name: "Plan Change Request",                level: "L1", steps: 4, obj: 3, status: "locked"             },
+    ];
+
+    const STATUS_LABEL = {
+      done:   { label: "Passed",      cls: "done"   },
+      open:   { label: "In Progress", cls: "open"   },
+      retry:  { label: "Retry Needed",cls: "retry"  },
+      locked: { label: "Locked",      cls: "locked" },
+    };
+
+    const grid = document.getElementById("grid");
+    SAMPLE.forEach((c) => {
+      const card = document.createElement("div");
+      card.className = "card" + (c.status === "locked" ? " locked" : "");
+
+      const sl = STATUS_LABEL[c.status];
+
+      let footer = "";
+      if (c.status === "done") {
+        footer = `
+          <span class="score-text">Score: <strong>${c.score}%</strong></span>
+          <button class="btn ghost">Review</button>
+        `;
+      } else if (c.status === "open") {
+        footer = `
+          <span class="score-text">Not attempted</span>
+          <button class="btn primary">Start Training</button>
+        `;
+      } else if (c.status === "retry") {
+        footer = `
+          <span class="score-text">Last: <strong class="fail">${c.score}%</strong> — 100% needed</span>
+          <button class="btn primary">Retake Quiz</button>
+        `;
+      } else {
+        footer = `
+          <span class="lock-note">Pichli category 100% pass karo</span>
+          <button class="btn disabled" disabled>Locked</button>
+        `;
+      }
+
+      card.innerHTML = `
+        <div class="card-top">
+          <span class="pill level">${c.level}</span>
+          <span class="status ${sl.cls}"><span class="dot"></span>${sl.label}</span>
+        </div>
+        <div class="cat-id">${c.id}</div>
+        <h3>${c.name}</h3>
+        <div class="meta">
+          <span class="meta-item"><strong>${c.steps}</strong> SOP steps</span>
+          <span class="meta-item"><strong>${c.obj}</strong> objections</span>
+        </div>
+        <div class="card-footer">${footer}</div>
+      `;
+      grid.appendChild(card);
+    });
+  </script>
+</body>
+</html>

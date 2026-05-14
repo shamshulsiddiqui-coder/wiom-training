@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WIOM Training Portal</title>
+  <link rel="stylesheet" href="css/wiom.css" />
+</head>
+<body>
+
+  <!-- LOGIN MODAL (first-time / switch user) -->
+  <div id="loginModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="brand-mark big">W</div>
+      <h2>Welcome to WIOM Training</h2>
+      <p class="modal-sub">Apna email aur naam enter karein.</p>
+      <input type="email" id="emailInput" placeholder="email@wiom.in" autocomplete="email" />
+      <input type="text" id="nameInput" placeholder="Aapka pura naam" autocomplete="name" />
+      <div id="loginError" class="login-error"></div>
+      <button class="btn primary block" id="loginSubmit">Continue →</button>
+    </div>
+  </div>
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">W</div>
+      <div class="brand-text">
+        <div class="name">WIOM Training</div>
+        <div class="sub">Agent Refresher Portal</div>
+      </div>
+    </div>
+    <div class="user-block">
+      <span id="syncStatus" class="sync-status">Loading…</span>
+      <span class="user-name" id="userName">—</span>
+      <div class="avatar" id="userAvatar">?</div>
+      <a href="#" class="help-link" id="switchUserBtn" title="Switch agent">Switch</a>
+    </div>
+  </header>
+
+  <!-- APP ROOT — views swap here -->
+  <main id="root" class="page"></main>
+
+  <div class="footer">
+    WIOM Training Portal · v1.0
+  </div>
+
+  <script src="js/wiom-app.js"></script>
+</body>
+</html>
