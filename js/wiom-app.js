@@ -416,6 +416,7 @@
       attempts: attemptNum,
       passed: prev.passed || passed,
       correct, total,
+      synced: true, // this attempt is being submitted right now — skip in backfill
     };
     saveProgress();
 
@@ -1283,6 +1284,36 @@
   //  BOOTSTRAP
   // ===========================================================================
 
+  // Sync any localStorage attempts that were never POSTed to the Form
+  // (e.g. attempts made before Form writeback was wired). Idempotent — each
+  // category's progress is marked .synced=true after one successful push.
+  function backfillUnsyncedProgress() {
+    if (!FORM_ENABLED) return;
+    if (!currentEmail()) return;
+    let count = 0;
+    for (const catId in PROGRESS) {
+      const p = PROGRESS[catId];
+      if (!p || !p.attempts || p.synced) continue;
+      const cat = CATS.find(c => c.id === catId);
+      submitToForm({
+        email:    currentEmail(),
+        name:     currentName(),
+        category: cat ? cat.name : catId,
+        totalQ:   p.total || 0,
+        correct:  p.correct || 0,
+        score:    p.best || p.last || 0,
+        passed:   !!p.passed,
+        attempt:  p.attempts
+      });
+      p.synced = true;
+      count++;
+    }
+    if (count > 0) {
+      saveProgress();
+      console.info("[WIOM] backfilled " + count + " past attempt(s) to Form");
+    }
+  }
+
   async function boot(skipLogin) {
     if (!skipLogin) {
       await promptLogin(false);
@@ -1300,7 +1331,10 @@
       $root.innerHTML = `<div class="error-block">Sheet me koi category "Enable" mark nahi mili.</div>`;
       return;
     }
-    if (!API_ENABLED && isAdmin()) {
+    // One-time silent backfill for users who attempted quizzes before
+    // Form writeback was wired. Runs once per attempt (synced flag in progress).
+    if (currentRole() !== "admin") backfillUnsyncedProgress();
+    if (!API_ENABLED && !FORM_RESPONSES_CSV_URL && isAdmin()) {
       // Allow admin route to surface its config warning
       go("#/admin");
       return;
