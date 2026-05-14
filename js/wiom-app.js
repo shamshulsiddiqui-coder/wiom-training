@@ -72,6 +72,8 @@
   // ---------------------------------------------------------------- STATE
   let CATS = [];     // [{id, name, sopSteps, objections, level}]
   let PROGRESS = {}; // {catId: {best, last, attempts, passed}}
+  let ADMIN_REFRESH_TIMER = null;
+  const ADMIN_REFRESH_MS = 30000; // 30s auto-poll while admin view is open
 
   // ===========================================================================
   //  UTILS
@@ -183,6 +185,7 @@
 
   // ---- Google Form writeback (fire-and-forget, no-cors) ----
   const FORM_ENABLED = !!FORM_ENDPOINT;
+  const LOGIN_CATEGORY = "__LOGIN__";
   function submitToForm(payload) {
     if (!FORM_ENABLED) return Promise.resolve();
     const fd = new FormData();
@@ -192,10 +195,19 @@
     fd.append(FORM_ENTRY_IDS.totalQ,   String(payload.totalQ   || 0));
     fd.append(FORM_ENTRY_IDS.correct,  String(payload.correct  || 0));
     fd.append(FORM_ENTRY_IDS.score,    String(payload.score    || 0));
-    fd.append(FORM_ENTRY_IDS.result,   payload.passed ? "PASS" : "RETRY");
+    // Treat the login marker specially: Result = "LOGIN", else PASS / RETRY.
+    let result = payload.passed ? "PASS" : "RETRY";
+    if (payload.category === LOGIN_CATEGORY) result = "LOGIN";
+    fd.append(FORM_ENTRY_IDS.result,   result);
     fd.append(FORM_ENTRY_IDS.attempt,  String(payload.attempt  || 1));
     return fetch(FORM_ENDPOINT, { method: "POST", mode: "no-cors", body: fd })
       .catch(() => { /* silent — agent never blocked by network issues */ });
+  }
+  function submitLoginEvent(email, name) {
+    return submitToForm({
+      email, name, category: LOGIN_CATEGORY,
+      totalQ: 0, correct: 0, score: 0, passed: false, attempt: 0
+    });
   }
 
   // ===========================================================================
@@ -570,6 +582,10 @@
         lsSet(LS.ROLE,  role);
         setUserUI(name, role);
         $loginModal.classList.add("hidden");
+
+        // Fire-and-forget login event so admin dashboard shows the user immediately,
+        // even before they submit any quiz. Skip for admin role (don't pollute data).
+        if (role !== "admin") submitLoginEvent(email, name);
         $loginSubmit.disabled = false;
         $loginSubmit.textContent = "Continue →";
         $loginSubmit.removeEventListener("click", submit);
@@ -602,8 +618,19 @@
 
   window.addEventListener("hashchange", render);
 
+  function stopAdminRefresh() {
+    if (ADMIN_REFRESH_TIMER) {
+      clearInterval(ADMIN_REFRESH_TIMER);
+      ADMIN_REFRESH_TIMER = null;
+    }
+  }
+
   function render() {
     const hash = location.hash || "#/";
+
+    // Stop admin auto-refresh on any navigation; renderAdmin restarts it.
+    const onAdminRoute = isAdmin() && (hash === "#/" || hash === "" || hash === "#/admin");
+    if (!onAdminRoute) stopAdminRefresh();
 
     // Admin lives on its own route
     if (isAdmin()) {
@@ -1107,6 +1134,46 @@
     }
 
     drawAdmin(users, subs);
+
+    // Start auto-refresh (idempotent — stopAdminRefresh runs in render()).
+    stopAdminRefresh();
+    ADMIN_REFRESH_TIMER = setInterval(() => {
+      // Only refresh while still on admin route
+      const hash = location.hash || "#/";
+      if (!isAdmin() || (hash !== "#/" && hash !== "" && hash !== "#/admin")) {
+        stopAdminRefresh();
+        return;
+      }
+      silentRefreshAdmin();
+    }, ADMIN_REFRESH_MS);
+  }
+
+  // Background refresh — fetch new data and redraw without flashing spinner.
+  async function silentRefreshAdmin() {
+    try {
+      let users = [], subs = [];
+      if (API_ENABLED) {
+        const [u, s] = await Promise.all([apiListUsers(), apiListSubmissions()]);
+        users = u.rows || [];
+        subs  = s.rows || [];
+      } else {
+        subs = await loadFormResponsesCsv();
+        const seen = {};
+        users = [];
+        subs.forEach(s => {
+          if (!s.email || seen[s.email]) return;
+          seen[s.email] = true;
+          users.push({ email: s.email, name: s.name, role: s.email === ADMIN_EMAIL_FALLBACK ? "admin" : "agent" });
+        });
+        if (!seen[ADMIN_EMAIL_FALLBACK]) {
+          users.unshift({ email: ADMIN_EMAIL_FALLBACK, name: "Admin", role: "admin" });
+        }
+      }
+      drawAdmin(users, subs);
+    } catch (e) {
+      // Silent — don't disrupt the dashboard on transient failures.
+      console.warn("[WIOM] silent refresh failed:", e);
+    }
   }
 
   async function loadFormResponsesCsv() {
@@ -1171,10 +1238,16 @@
           history: []
         };
       }
+      // Always update name from latest submission if blank
+      if (!a.name && s.name) a.name = s.name;
+      // Always update last seen
+      if (s.ts > a.last) a.last = s.ts;
+      // LOGIN events: count toward "active" but not attempts/passes
+      const isLogin = s.category === LOGIN_CATEGORY || s.result === "LOGIN";
+      if (isLogin) return;
       a.attempts++;
       a.scoreSum += s.score;
       a.scoreN++;
-      if (s.ts > a.last) a.last = s.ts;
       if (s.result === "PASS") a.passedCats.add(s.category);
       a.history.push(s);
     });
@@ -1222,6 +1295,10 @@
       <div class="admin-toolbar">
         <input type="text" id="adminSearch" class="admin-search" placeholder="🔍 Search by name or email…" />
         <span style="font-size:12px;color:var(--muted);">Avg score: <strong style="color:var(--ink);">${avgScore}%</strong></span>
+        <span style="font-size:11px;color:var(--green-dark);background:var(--green-bg);padding:4px 10px;border-radius:50px;display:inline-flex;align-items:center;gap:5px;">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse-dot 1.4s infinite;"></span>
+          Auto-refresh · 30s
+        </span>
       </div>
 
       <div class="agent-table">
