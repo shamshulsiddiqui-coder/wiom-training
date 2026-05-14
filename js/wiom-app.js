@@ -32,7 +32,8 @@
   };
   // Once user publishes the linked sheet's "Form Responses 1" tab as CSV,
   // paste the public CSV URL here to enable the admin dashboard data read.
-  const FORM_RESPONSES_CSV_URL = "";
+  const FORM_RESPONSES_CSV_URL =
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqWjGgwrzkM6G8JTko-WpdruTsSfZgNWQutfojHcCVmZ2zj678V5gjSpVvb_EnDDou5W8THegl55wE/pub?gid=1875926104&single=true&output=csv";
 
   const ADMIN_EMAIL_FALLBACK = "shamshul.siddiqui@wiom.in";
   const PASS_PCT = 100; // strict — agent must score 100% to unlock next
