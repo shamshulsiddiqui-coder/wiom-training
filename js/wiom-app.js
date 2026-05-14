@@ -47,7 +47,15 @@
     PROGRESS: "wiom.progress",
     CACHE:    "wiom.csv.cache",
     CACHE_TS: "wiom.csv.cache.ts",
+    VERSION:  "wiom.app.version",
   };
+
+  // Bump this to force-logout all users on next page load.
+  // Use case: a breaking change (new login flow, new schema) where stale state
+  // would cause data loss or confusion. Was bumped to "2" when Form writeback
+  // went live so pre-Form agents start fresh.
+  const APP_VERSION = "2";
+  let WAS_RESET = false;
 
   // ---------------------------------------------------------------- DOM refs
   const $root        = document.getElementById("root");
@@ -97,6 +105,24 @@
     catch (e) { return fb; }
   }
   function lsSetJSON(k, obj) { lsSet(k, JSON.stringify(obj)); }
+  // If APP_VERSION differs from what's stored, wipe ALL wiom.* localStorage keys.
+  // Triggers a fresh login flow. Set WAS_RESET = true so login modal can show a note.
+  function enforceAppVersion() {
+    const stored = lsGet(LS.VERSION, "");
+    if (stored === APP_VERSION) return;
+    try {
+      const toRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf("wiom.") === 0) toRemove.push(k);
+      }
+      toRemove.forEach(k => localStorage.removeItem(k));
+    } catch (e) { /* private mode etc. */ }
+    lsSet(LS.VERSION, APP_VERSION);
+    // Only flag as a "reset" if user had a prior session
+    if (stored !== "") WAS_RESET = true;
+  }
+
   function initials(name) {
     const parts = String(name).trim().split(/\s+/);
     if (!parts.length) return "?";
@@ -503,6 +529,10 @@
       $emailInput.value = curEmail || "";
       $nameInput.value  = curName  || "";
       clearLoginError();
+      if (WAS_RESET) {
+        showLoginError("App updated 🚀 — kripya dobara login karein. Aage saari progress automatically save hogi.");
+        WAS_RESET = false;
+      }
       setTimeout(() => $emailInput.focus(), 100);
 
       const submit = async () => {
@@ -1315,6 +1345,7 @@
   }
 
   async function boot(skipLogin) {
+    enforceAppVersion();
     if (!skipLogin) {
       await promptLogin(false);
     } else {
