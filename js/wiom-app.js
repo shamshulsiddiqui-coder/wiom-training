@@ -394,7 +394,7 @@
       ].slice(0, 3);
       if (distractors.length < 3) return;
       questions.push({
-        text: `Customer/CSP kehta hai: "${obj.objection}" — aapka SAHI response kya hoga?`,
+        text: `CSP kehta hai: "${obj.objection}" — aapka SAHI response kya hoga?`,
         correct: obj.response,
         options: shuffle([obj.response, ...distractors]),
         explain: `Sahi response: standard objection-handling script use karein.`,
