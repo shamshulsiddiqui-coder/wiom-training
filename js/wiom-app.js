@@ -381,6 +381,21 @@
     return shuffle(filtered).slice(0, n);
   }
 
+  // Helper — packages a question with its options shuffled and correctIdx
+  // pre-computed. Using index-based identity avoids string-comparison bugs
+  // when options contain newlines / quotes (HTML attribute normalization can
+  // silently mangle whitespace).
+  function makeQuestion(text, correctValue, options, explain) {
+    const shuffled = shuffle(options);
+    return {
+      text,
+      correct: correctValue,
+      correctIdx: shuffled.indexOf(correctValue),
+      options: shuffled,
+      explain,
+    };
+  }
+
   function generateQuiz(cat) {
     const questions = [];
     const pools = buildDistractorPools(cat);
@@ -393,12 +408,12 @@
         ...pickN(pools.responses, obj.response, 3),
       ].slice(0, 3);
       if (distractors.length < 3) return;
-      questions.push({
-        text: `CSP kehta hai: "${obj.objection}" — aapka SAHI response kya hoga?`,
-        correct: obj.response,
-        options: shuffle([obj.response, ...distractors]),
-        explain: `Sahi response: standard objection-handling script use karein.`,
-      });
+      questions.push(makeQuestion(
+        `CSP kehta hai: "${obj.objection}" — aapka SAHI response kya hoga?`,
+        obj.response,
+        [obj.response, ...distractors],
+        `Sahi response: standard objection-handling script use karein.`
+      ));
     });
 
     // Type 2: SOP step recall — "kaunsa step is category ka hissa hai?"
@@ -406,24 +421,24 @@
       if (step.length < 12) return;
       const distractors = pickN(pools.steps, step, 3);
       if (distractors.length < 3) return;
-      questions.push({
-        text: `Is category "${cat.name}" ke SOP me se ek STEP kaunsa hai?`,
-        correct: step,
-        options: shuffle([step, ...distractors]),
-        explain: `Yeh SOP ka actual step hai.`,
-      });
+      questions.push(makeQuestion(
+        `Is category "${cat.name}" ke SOP me se ek STEP kaunsa hai?`,
+        step,
+        [step, ...distractors],
+        `Yeh SOP ka actual step hai.`
+      ));
     });
 
     // Type 3: First-step recall (if 3+ steps)
     if (cat.sopSteps.length >= 3) {
       const first = cat.sopSteps[0];
       const others = cat.sopSteps.slice(1);
-      questions.push({
-        text: `"${cat.name}" — process ka SABSE PEHLA step kya hai?`,
-        correct: first,
-        options: shuffle([first, ...pickN(others, first, 3)]),
-        explain: `Pehla step: yahi hai.`,
-      });
+      questions.push(makeQuestion(
+        `"${cat.name}" — process ka SABSE PEHLA step kya hai?`,
+        first,
+        [first, ...pickN(others, first, 3)],
+        `Pehla step: yahi hai.`
+      ));
     }
 
     return shuffle(questions).slice(0, MAX_QUESTIONS);
@@ -888,8 +903,10 @@
       document.getElementById("qBar").style.width = `${(qIdx / questions.length) * 100}%`;
 
       const letters = ["A", "B", "C", "D", "E"];
+      // Use data-idx (number) for identity — safer than data-val when options
+      // contain newlines/quotes (HTML attribute whitespace normalization).
       const optsHtml = q.options.map((opt, i) =>
-        `<div class="option" data-val="${escapeHtml(opt)}">
+        `<div class="option" data-idx="${i}">
           <div class="letter">${letters[i]}</div>
           <div>${escapeHtml(opt)}</div>
         </div>`
@@ -918,8 +935,8 @@
     function onSelect(el, q) {
       if (answered) return;
       answered = true;
-      const chosen = el.getAttribute("data-val");
-      const isRight = chosen === q.correct;
+      const chosenIdx = parseInt(el.getAttribute("data-idx"), 10);
+      const isRight = chosenIdx === q.correctIdx;
       if (isRight) { correctCount++; streak++; }
       else { streak = 0; }
 
@@ -936,8 +953,8 @@
 
       document.querySelectorAll("#optsList .option").forEach(o => {
         o.classList.add("disabled");
-        const v = o.getAttribute("data-val");
-        if (v === q.correct) o.classList.add("correct");
+        const idx = parseInt(o.getAttribute("data-idx"), 10);
+        if (idx === q.correctIdx) o.classList.add("correct");
         else if (o === el) o.classList.add("wrong");
       });
 
