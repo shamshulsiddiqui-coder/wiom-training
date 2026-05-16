@@ -73,7 +73,9 @@
   let CATS = [];     // [{id, name, sopSteps, objections, level}]
   let PROGRESS = {}; // {catId: {best, last, attempts, passed}}
   let ADMIN_REFRESH_TIMER = null;
-  const ADMIN_REFRESH_MS = 30000; // 30s auto-poll while admin view is open
+  let SHEET_REFRESH_TIMER = null;
+  const ADMIN_REFRESH_MS = 30000;          // 30s auto-poll while admin view is open
+  const SHEET_REFRESH_MS = 5 * 60 * 1000;  // 5 min — re-fetch sheet to pick up trainer edits
 
   // ===========================================================================
   //  UTILS
@@ -1438,6 +1440,43 @@
     }
   }
 
+  // Quick fingerprint of a category list — change in name / order / count = different.
+  // Used to detect when re-fetched sheet actually has new content vs no-op.
+  function fingerprintCats(list) {
+    return (list || []).map(c => c.id + ":" + (c.sopSteps || []).length + ":" + (c.objections || []).length).join("|");
+  }
+
+  // Silent background poll — re-fetch sheet every SHEET_REFRESH_MS so trainer
+  // edits (enable/disable/SOP changes) reach agents without manual refresh.
+  // Skips when user is mid-quiz to avoid disrupting them.
+  function startSheetAutoRefresh() {
+    if (SHEET_REFRESH_TIMER) clearInterval(SHEET_REFRESH_TIMER);
+    SHEET_REFRESH_TIMER = setInterval(async () => {
+      const hash = location.hash || "#/";
+      const midQuiz = /^#\/quiz\//.test(hash);
+      if (midQuiz) return; // don't yank the rug out mid-quiz
+      try {
+        const fresh = await loadSheet();
+        if (!fresh || fresh.length === 0) return;
+        if (fingerprintCats(fresh) === fingerprintCats(CATS)) return; // no change
+        CATS = fresh;
+        // Re-render whichever view is active (so agents see new cards instantly).
+        render();
+        // Subtle visual ping
+        showToast("📋 Categories updated · " + CATS.length + " total");
+      } catch (_) { /* network blip — try again next interval */ }
+    }, SHEET_REFRESH_MS);
+  }
+
+  // Lightweight toast — visible at module scope so non-quiz views can call it.
+  function showToast(text) {
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.innerHTML = text;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4200);
+  }
+
   async function boot(skipLogin) {
     enforceAppVersion();
     if (!skipLogin) {
@@ -1459,6 +1498,9 @@
     // One-time silent backfill for users who attempted quizzes before
     // Form writeback was wired. Runs once per attempt (synced flag in progress).
     if (currentRole() !== "admin") backfillUnsyncedProgress();
+    // Kick off the background poll so trainer-side sheet edits propagate
+    // to every laptop without anyone having to hard-refresh.
+    startSheetAutoRefresh();
     if (!API_ENABLED && !FORM_RESPONSES_CSV_URL && isAdmin()) {
       // Allow admin route to surface its config warning
       go("#/admin");
