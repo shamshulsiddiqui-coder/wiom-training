@@ -99,6 +99,18 @@
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "").slice(0, 50);
   }
+  // Simple non-cryptographic hash (DJB2 variant) — used to fingerprint SOP +
+  // objection content. When trainer edits the sheet, this hash changes,
+  // which invalidates prior passes (so agent must retake the quiz).
+  function contentHashOf(sopSteps, objections) {
+    const s = (sopSteps || []).join("|") + "||" +
+      (objections || []).map(o => (o.objection || "") + "→" + (o.response || "")).join("|");
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) {
+      h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    }
+    return (h >>> 0).toString(36);
+  }
   function lsGet(k, fallback) {
     try { const v = localStorage.getItem(k); return v == null ? fallback : v; }
     catch (e) { return fallback; }
@@ -360,6 +372,7 @@
         sopSteps, objections,
         icon: iconFor(name),
         order: list.length + 1,
+        contentHash: contentHashOf(sopSteps, objections),
       });
     }
     return list;
@@ -465,6 +478,7 @@
     const passed = pct >= PASS_PCT;
     const prev = PROGRESS[catId] || { best: 0, attempts: 0, passed: false };
     const attemptNum = prev.attempts + 1;
+    const cat = CATS.find(c => c.id === catId);
     PROGRESS[catId] = {
       best: Math.max(prev.best, pct),
       last: pct,
@@ -472,6 +486,9 @@
       passed: prev.passed || passed,
       correct, total,
       synced: true, // this attempt is being submitted right now — skip in backfill
+      // Snapshot content hash at the time of attempt. If trainer later edits
+      // SOP/objections, statusFor() will see a mismatch and require retake.
+      contentHash: cat ? cat.contentHash : (prev.contentHash || ""),
     };
     saveProgress();
 
@@ -499,13 +516,35 @@
   function statusFor(idx) {
     const cat = CATS[idx];
     const p = PROGRESS[cat.id];
-    if (p && p.passed) return "done";
-    // First category, or previous one passed → eligible
+    if (p && p.passed) {
+      // Content version check — if SOP/objections were edited since this pass,
+      // require a fresh quiz attempt (status becomes "retry").
+      if (p.contentHash && p.contentHash !== cat.contentHash) return "retry";
+      return "done";
+    }
+    // First category, or previous one passed → eligible (unlock uses stored
+    // pass flag, NOT hash — so edits don't cascade-lock the entire chain).
     const prev = idx === 0 ? null : PROGRESS[CATS[idx - 1].id];
     const unlocked = idx === 0 || (prev && prev.passed);
     if (!unlocked) return "locked";
     if (p && p.attempts > 0 && !p.passed) return "retry";
     return "open";
+  }
+
+  /** Backfill missing contentHash on existing passes by stamping current hash.
+   * Run once after CATS load. Effect: edits made before this feature shipped
+   * do NOT invalidate prior passes (grandfathered), but any future edit will. */
+  function grandfatherContentHashes() {
+    let changed = false;
+    for (const id in PROGRESS) {
+      const p = PROGRESS[id];
+      if (!p || !p.passed || p.contentHash) continue;
+      const cat = CATS.find(c => c.id === id);
+      if (!cat) continue;
+      p.contentHash = cat.contentHash;
+      changed = true;
+    }
+    if (changed) saveProgress();
   }
 
   function firstUnpassedIndex() {
@@ -675,16 +714,17 @@
 
   function renderGrid() {
     const total = CATS.length;
+    // Use statusFor so "retry" (content edited since pass) doesn't inflate done count.
     let done = 0;
-    CATS.forEach(c => { if (PROGRESS[c.id]?.passed) done++; });
+    CATS.forEach((_, i) => { if (statusFor(i) === "done") done++; });
     const pct = total === 0 ? 0 : Math.round((done / total) * 100);
 
     // Level = how many done + 1 (current target). Capped at total.
     const level = Math.min(done + 1, total);
-    // Lifetime streak = consecutive done from start
+    // Lifetime streak = consecutive done from start (content-version aware).
     let streak = 0;
-    for (const c of CATS) {
-      if (PROGRESS[c.id]?.passed) streak++;
+    for (let i = 0; i < CATS.length; i++) {
+      if (statusFor(i) === "done") streak++;
       else break;
     }
 
@@ -1459,11 +1499,25 @@
         const fresh = await loadSheet();
         if (!fresh || fresh.length === 0) return;
         if (fingerprintCats(fresh) === fingerprintCats(CATS)) return; // no change
+        // Detect categories whose content changed since the agent's last pass —
+        // those will flip to "retry" once we swap CATS in.
+        const flippedToRetry = [];
+        fresh.forEach(nc => {
+          const p = PROGRESS[nc.id];
+          if (p && p.passed && p.contentHash && p.contentHash !== nc.contentHash) {
+            flippedToRetry.push(nc.name);
+          }
+        });
         CATS = fresh;
-        // Re-render whichever view is active (so agents see new cards instantly).
         render();
-        // Subtle visual ping
-        showToast("📋 Categories updated · " + CATS.length + " total");
+        if (flippedToRetry.length > 0) {
+          // SOP/objection edited → agent must retake the affected categories.
+          const sample = flippedToRetry.slice(0, 2).map(n => escapeHtml(n)).join(", ");
+          const more = flippedToRetry.length > 2 ? ` +${flippedToRetry.length - 2} aur` : "";
+          showToast("📚 SOP updated — retake: " + sample + more);
+        } else {
+          showToast("📋 Categories updated · " + CATS.length + " total");
+        }
       } catch (_) { /* network blip — try again next interval */ }
     }, SHEET_REFRESH_MS);
   }
@@ -1498,6 +1552,9 @@
     // One-time silent backfill for users who attempted quizzes before
     // Form writeback was wired. Runs once per attempt (synced flag in progress).
     if (currentRole() !== "admin") backfillUnsyncedProgress();
+    // Tag old passes (pre-versioning) with current content hash so they
+    // remain "done" until trainer's next edit triggers retake.
+    grandfatherContentHashes();
     // Kick off the background poll so trainer-side sheet edits propagate
     // to every laptop without anyone having to hard-refresh.
     startSheetAutoRefresh();
