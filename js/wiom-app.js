@@ -48,6 +48,7 @@
     CACHE:    "wiom.csv.cache",
     CACHE_TS: "wiom.csv.cache.ts",
     VERSION:  "wiom.app.version",
+    CAT_HASHES: "wiom.cat.hashes", // {catId: contentHash} — last-seen per category
   };
 
   // Bump this to force-logout all users on next page load.
@@ -531,19 +532,46 @@
     return "open";
   }
 
-  /** Backfill missing contentHash on existing passes by stamping current hash.
-   * Run once after CATS load. Effect: edits made before this feature shipped
-   * do NOT invalidate prior passes (grandfathered), but any future edit will. */
-  function grandfatherContentHashes() {
+  /** Cross-load content version tracking.
+   *
+   *  Compare the contentHash of every category against what we saw on the
+   *  previous app load (stored in LS.CAT_HASHES). If a category's hash has
+   *  changed AND the user already passed it, stamp the user's stored hash
+   *  with the OLD value — that creates a mismatch with the new cat.contentHash,
+   *  so statusFor() correctly returns "retry".
+   *
+   *  Then grandfather: for any passed category that still has NO stored hash
+   *  (e.g. quiz taken before this feature shipped), stamp current hash so
+   *  future edits will be detected on subsequent loads.
+   */
+  function syncContentHashes() {
+    const prev = lsGetJSON(LS.CAT_HASHES, {});
+    const next = {};
     let changed = false;
-    for (const id in PROGRESS) {
-      const p = PROGRESS[id];
-      if (!p || !p.passed || p.contentHash) continue;
-      const cat = CATS.find(c => c.id === id);
-      if (!cat) continue;
-      p.contentHash = cat.contentHash;
-      changed = true;
+
+    for (const cat of CATS) {
+      next[cat.id] = cat.contentHash;
+      const prevHash = prev[cat.id];
+      const p = PROGRESS[cat.id];
+
+      // Case A: content changed between the previous load and now
+      if (prevHash && prevHash !== cat.contentHash) {
+        if (p && p.passed) {
+          // Force mismatch: stamp the OLD (now-stale) hash on the pass record.
+          p.contentHash = prevHash;
+          changed = true;
+        }
+        // continue — next gets new hash, no further action
+        continue;
+      }
+      // Case B: passed category with no stored hash → grandfather to current
+      if (p && p.passed && !p.contentHash) {
+        p.contentHash = cat.contentHash;
+        changed = true;
+      }
     }
+
+    lsSetJSON(LS.CAT_HASHES, next);
     if (changed) saveProgress();
   }
 
@@ -1499,19 +1527,32 @@
         const fresh = await loadSheet();
         if (!fresh || fresh.length === 0) return;
         if (fingerprintCats(fresh) === fingerprintCats(CATS)) return; // no change
-        // Detect categories whose content changed since the agent's last pass —
-        // those will flip to "retry" once we swap CATS in.
+        // Compare against in-memory CATS (the previous poll cycle's snapshot).
+        // For any category whose contentHash changed AND user has passed it,
+        // stamp the user's stored hash with the OLD value — so statusFor()
+        // sees a mismatch with the new hash and returns "retry".
         const flippedToRetry = [];
+        let progressChanged = false;
         fresh.forEach(nc => {
+          const oldCat = CATS.find(c => c.id === nc.id);
+          if (!oldCat) return;
+          if (oldCat.contentHash === nc.contentHash) return; // content unchanged
           const p = PROGRESS[nc.id];
-          if (p && p.passed && p.contentHash && p.contentHash !== nc.contentHash) {
+          if (p && p.passed) {
+            p.contentHash = oldCat.contentHash; // force mismatch with new
+            progressChanged = true;
             flippedToRetry.push(nc.name);
           }
         });
+        // Also refresh the LS.CAT_HASHES snapshot so next boot sees the truth.
+        const next = {};
+        fresh.forEach(c => { next[c.id] = c.contentHash; });
+        lsSetJSON(LS.CAT_HASHES, next);
+        if (progressChanged) saveProgress();
+
         CATS = fresh;
         render();
         if (flippedToRetry.length > 0) {
-          // SOP/objection edited → agent must retake the affected categories.
           const sample = flippedToRetry.slice(0, 2).map(n => escapeHtml(n)).join(", ");
           const more = flippedToRetry.length > 2 ? ` +${flippedToRetry.length - 2} aur` : "";
           showToast("📚 SOP updated — retake: " + sample + more);
@@ -1552,9 +1593,9 @@
     // One-time silent backfill for users who attempted quizzes before
     // Form writeback was wired. Runs once per attempt (synced flag in progress).
     if (currentRole() !== "admin") backfillUnsyncedProgress();
-    // Tag old passes (pre-versioning) with current content hash so they
-    // remain "done" until trainer's next edit triggers retake.
-    grandfatherContentHashes();
+    // Sync content hashes — detect edits between loads and flip passed
+    // categories to "retry" when SOP/objections changed.
+    syncContentHashes();
     // Kick off the background poll so trainer-side sheet edits propagate
     // to every laptop without anyone having to hard-refresh.
     startSheetAutoRefresh();
