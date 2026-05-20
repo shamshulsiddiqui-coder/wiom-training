@@ -259,42 +259,67 @@
 
   function parseObjections(text) {
     if (!text || !text.trim()) return [];
-    // Two sheet formats supported:
-    //   Style A: 👉 "objection" / "response"
-    //   Style B: 🗣️ "objection" / ✅ Response: "response"  separated by ---
-    // Split on either objection marker. Also break on "---" separator for safety.
+    // Supported sheet formats:
+    //   A) 👉 "objection" \n "response"                (both curly-quoted)
+    //   B) 🗣️ "objection" \n ✅ Response: "response"   (with explicit Response: marker)
+    //   C) 👉 question plain text \n "response"        (question NOT quoted, response IS)
+    //   D) 👉 **"objection"** \n "response"            (markdown bold wrappers)
+    // Plain straight quotes are also handled. Markdown bold (`**...**`) is stripped first.
+    const cleaned = String(text).replace(/\*\*/g, "");
     const markerRegex = /👉|🗣️?|->|=>|---+/g;
-    const chunks = String(text).split(markerRegex).map(s => s.trim()).filter(Boolean);
+    const chunks = cleaned.split(markerRegex).map(s => s.trim()).filter(Boolean);
     const pairs = [];
-    const QUOTE = /[“”„«»‘’"']([^“”„«»‘’"']+)[“”„«»‘’"']/g;
+    // Quote pattern — accepts curly, straight, French, German variants.
+    // Require 3+ chars inside to skip tiny accidental matches.
+    const QUOTE_RE = /[“”„«»‘’"']([^“”„«»‘’"']{3,})[“”„«»‘’"']/g;
 
     for (const chunk of chunks) {
-      // Skip preamble chunks that don't look like an objection (e.g. "Multiple Objection Handling – IVR Calling Issue SOP")
-      // Heuristic: must contain at least one quoted string.
-      const found = [];
+      // Collect every quoted span with its position
+      const quotes = [];
       let m;
-      QUOTE.lastIndex = 0;
-      while ((m = QUOTE.exec(chunk)) !== null) {
-        const v = m[1].trim();
-        if (v.length > 2) found.push(v);
+      QUOTE_RE.lastIndex = 0;
+      while ((m = QUOTE_RE.exec(chunk)) !== null) {
+        quotes.push({ text: m[1].trim(), start: m.index, end: QUOTE_RE.lastIndex });
       }
-      if (found.length >= 2) {
-        pairs.push({ objection: found[0], response: found.slice(1).join(" ") });
-      } else if (found.length === 1) {
-        // One quote: the quoted part is the objection. Look for response after "Response:" or "✅"
-        const afterResponse = chunk.match(/(?:Response\s*[:\-]|✅)\s*([\s\S]+)/i);
-        if (afterResponse) {
-          const respText = afterResponse[1].replace(QUOTE, "").trim() || afterResponse[1].trim();
-          // Try to extract a quoted response from the original chunk that came AFTER the first quoted objection
-          const all = [...chunk.matchAll(QUOTE)];
-          if (all.length >= 2) {
-            pairs.push({ objection: found[0], response: all[1][1].trim() });
-          } else {
-            // Last-resort: response is whatever follows "Response:" verbatim
-            const stripped = respText.replace(/^["“”]+|["“”]+$/g, "").trim();
-            if (stripped.length > 4) pairs.push({ objection: found[0], response: stripped });
-          }
+
+      let objection = "", response = "";
+
+      if (quotes.length >= 2) {
+        // Format A / B / D: first quote = objection, rest = response
+        objection = quotes[0].text;
+        response  = quotes.slice(1).map(q => q.text).join(" ");
+      } else if (quotes.length === 1) {
+        const q = quotes[0];
+        // Substantial text BEFORE the quote? → Format C (question plain, response quoted)
+        const beforeRaw = chunk.slice(0, q.start)
+          .replace(/^[\s\n.,\-—…:“”„«»‘’"']+|[\s\n.,\-—…:“”„«»‘’"']+$/g, "");
+        if (beforeRaw.length > 5) {
+          // Format C
+          objection = beforeRaw.replace(/\n+/g, " ").trim();
+          response  = q.text;
+        } else {
+          // Format B-ish: quoted text is objection, response after
+          objection = q.text;
+          const after = chunk.slice(q.end);
+          const respMarker = after.match(/(?:Response\s*[:\-]|✅)\s*([\s\S]+)/i);
+          let rest;
+          if (respMarker) rest = respMarker[1];
+          else            rest = after;
+          rest = rest.replace(/^[\s"“”'.,\-—…:]+|[\s"“”'.,\-—…:]+$/g, "").trim();
+          if (rest.length > 4) response = rest;
         }
+      } else {
+        // No quotes at all — try splitting on first blank line / newline
+        const lines = chunk.split(/\n+/).map(l => l.trim()).filter(Boolean);
+        if (lines.length >= 2) {
+          objection = lines[0];
+          response  = lines.slice(1).join(" ");
+        }
+      }
+
+      // Guard: both sides must be substantial. Drop preamble-only chunks.
+      if (objection.length >= 4 && response.length >= 6) {
+        pairs.push({ objection, response });
       }
     }
     return pairs;
