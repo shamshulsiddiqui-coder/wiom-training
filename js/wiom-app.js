@@ -569,6 +569,70 @@
    *  (e.g. quiz taken before this feature shipped), stamp current hash so
    *  future edits will be detected on subsequent loads.
    */
+  /**
+   * Restore an agent's progress from the Form Responses sheet.
+   *
+   * Use case: agent's localStorage was wiped (browser cleared, incognito,
+   * different laptop, etc.) but their submissions are still in the central
+   * sheet. On login we rebuild PROGRESS by reading the sheet — agent never
+   * has to redo a category they've already passed.
+   *
+   * Safe to call on every load: only writes entries that aren't already
+   * present in PROGRESS, so an in-progress agent isn't disturbed.
+   */
+  async function restoreProgressFromSheet() {
+    if (!FORM_RESPONSES_CSV_URL) return;
+    const email = currentEmail();
+    if (!email) return;
+    try {
+      const subs = await loadFormResponsesCsv();
+      const mine = subs.filter(s => s.email === email && s.category !== LOGIN_CATEGORY);
+      if (mine.length === 0) return;
+
+      // Group attempts by category NAME (sheet stores names, app uses slug IDs).
+      const byCategory = {};
+      mine.forEach(s => {
+        const k = s.category;
+        if (!byCategory[k]) byCategory[k] = [];
+        byCategory[k].push(s);
+      });
+
+      let restored = 0;
+      for (const catName in byCategory) {
+        const cat = CATS.find(c => c.name === catName);
+        if (!cat) continue;
+        if (PROGRESS[cat.id] && PROGRESS[cat.id].attempts) continue; // already have local data
+
+        const attempts = byCategory[catName];
+        const best = attempts.reduce((m, s) => Math.max(m, s.score || 0), 0);
+        const passed = attempts.some(s => (s.result || "").toUpperCase() === "PASS");
+        const sorted = [...attempts].sort((a, b) => b.ts - a.ts);
+        const latest = sorted[0] || {};
+
+        PROGRESS[cat.id] = {
+          best,
+          last: latest.score || 0,
+          attempts: attempts.length,
+          passed,
+          correct: latest.correct || 0,
+          total: latest.totalQ || 0,
+          synced: true, // sheet IS the source — don't re-submit during backfill
+          contentHash: cat.contentHash, // grandfather to current content version
+        };
+        restored++;
+      }
+
+      if (restored > 0) {
+        saveProgress();
+        // Tell the agent so they understand why their progress "reappeared".
+        setTimeout(() => showToast("✅ " + restored + " pichli pass restore ho gayi"), 400);
+        render(); // refresh grid so the restored "done" cards show immediately
+      }
+    } catch (e) {
+      console.warn("[WIOM] progress restore failed:", e);
+    }
+  }
+
   function syncContentHashes() {
     const prev = lsGetJSON(LS.CAT_HASHES, {});
     const next = {};
@@ -1621,6 +1685,9 @@
     // Sync content hashes — detect edits between loads and flip passed
     // categories to "retry" when SOP/objections changed.
     syncContentHashes();
+    // Rebuild progress from sheet if localStorage was lost (different laptop,
+    // cleared browser, incognito, etc.). Agents never have to redo past work.
+    if (currentRole() !== "admin") restoreProgressFromSheet();
     // Kick off the background poll so trainer-side sheet edits propagate
     // to every laptop without anyone having to hard-refresh.
     startSheetAutoRefresh();
