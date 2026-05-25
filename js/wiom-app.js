@@ -264,8 +264,35 @@
     //   B) 🗣️ "objection" \n ✅ Response: "response"   (with explicit Response: marker)
     //   C) 👉 question plain text \n "response"        (question NOT quoted, response IS)
     //   D) 👉 **"objection"** \n "response"            (markdown bold wrappers)
+    //   E) Q: question \n 👉 response                  (Q: prefix = objection, 👉 = response)
     // Plain straight quotes are also handled. Markdown bold (`**...**`) is stripped first.
     const cleaned = String(text).replace(/\*\*/g, "");
+
+    // Format E detection: line-start "Q:" markers (commonly used together with 👉 as response).
+    if (/(?:^|\n)\s*Q\s*[:.\-]\s*\S/i.test(cleaned)) {
+      const pairs = [];
+      // Split on Q: at line start. blocks[0] = preamble before first Q (often empty).
+      const blocks = cleaned.split(/(?:^|\n)\s*Q\s*[:.\-]\s*/i);
+      for (let i = 1; i < blocks.length; i++) {
+        const block = blocks[i];
+        // Locate the first response marker (👉, 🗣, A:, ✅).
+        const markerMatch = block.match(/👉|🗣️?|^\s*A\s*[:.\-]\s*|✅\s*/m);
+        if (!markerMatch) continue;
+        const idx = markerMatch.index;
+        const objection = block.slice(0, idx).trim();
+        const response = block.slice(idx + markerMatch[0].length)
+          .replace(/^(?:Agent\s*)?Response\s*[:\-(]/i, "")
+          .replace(/^[\s"“”‘’'.,\-—…:]+|[\s"“”‘’'.,\-—…:]+$/g, "")
+          .trim();
+        if (objection.length >= 4 && response.length >= 6) {
+          pairs.push({ objection, response });
+        }
+      }
+      // If we got at least 2 pairs, trust format E; otherwise fall through to the
+      // legacy quote-based parser (some sheets have stray "Q:" in body text).
+      if (pairs.length >= 2) return pairs;
+    }
+
     const markerRegex = /👉|🗣️?|->|=>|---+/g;
     const chunks = cleaned.split(markerRegex).map(s => s.trim()).filter(Boolean);
     const pairs = [];
