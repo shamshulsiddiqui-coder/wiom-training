@@ -37,6 +37,17 @@
 
   const ADMIN_EMAIL_FALLBACK = "shamshul.siddiqui@wiom.in";
   const PASS_PCT = 100; // strict — agent must score 100% to unlock next
+
+  // FRESH-START CUTOFF — submissions with a timestamp BEFORE this instant are
+  // ignored by the admin dashboard and by the "restore progress from sheet"
+  // logic. The row stays in the Form Responses sheet (historical record) but
+  // does not appear in the app. Bump this whenever a full reset is wanted
+  // (e.g. after a sheet swap, a category rename, or a training relaunch).
+  //
+  // 2026-09-23 — reset triggered after the sheet swap to the CATEGORY-level
+  // MCQ-only build: old sub-category passes no longer map to the new 11
+  // category cards, so the dashboard was showing "42 / 11" style counters.
+  const FRESH_START_TS = Date.parse("2026-09-23T00:00:00Z");
   const ENABLE_VALUE = "enable"; // value in col 4 that means "show this card"
   const MAX_QUESTIONS = 8;
 
@@ -1571,8 +1582,11 @@
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i];
       if (!r[idx.email]) continue;
+      const ts = Date.parse(r[idx.ts] || "") || 0;
+      // Discard pre-cutoff submissions (see FRESH_START_TS comment).
+      if (FRESH_START_TS && ts < FRESH_START_TS) continue;
       out.push({
-        ts:       Date.parse(r[idx.ts] || "") || 0,
+        ts,
         email:    String(r[idx.email]).trim().toLowerCase(),
         name:     r[idx.name] || "",
         category: r[idx.category] || "",
