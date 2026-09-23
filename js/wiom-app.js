@@ -36,7 +36,9 @@
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqWjGgwrzkM6G8JTko-WpdruTsSfZgNWQutfojHcCVmZ2zj678V5gjSpVvb_EnDDou5W8THegl55wE/pub?gid=1875926104&single=true&output=csv";
 
   const ADMIN_EMAIL_FALLBACK = "shamshul.siddiqui@wiom.in";
-  const PASS_PCT = 100; // strict — agent must score 100% to unlock next
+  const PASS_PCT = 100; // 100% = "passed" mark. Categories are not gated by
+                        // this any more — sequential unlock was removed. This
+                        // is now purely a tracking / display threshold.
   const QUESTIONS_PER_SUB = 5; // 5 MCQs per sub-category; total per quiz = 5 × sub count
 
   // FRESH-START CUTOFF — submissions with a timestamp BEFORE this instant are
@@ -892,21 +894,19 @@
     return { pct, passed };
   }
 
-  /** Compute status for a category given its index in CATS. */
+  /** Compute status for a category given its index in CATS.
+   *  Sequential unlock removed — every category is always open. Statuses:
+   *    done   — passed at the current content version
+   *    retry  — attempted but not passed, OR passed at a stale content version
+   *    open   — never attempted
+   */
   function statusFor(idx) {
     const cat = CATS[idx];
     const p = PROGRESS[cat.id];
     if (p && p.passed) {
-      // Content version check — if SOP/objections were edited since this pass,
-      // require a fresh quiz attempt (status becomes "retry").
       if (p.contentHash && p.contentHash !== cat.contentHash) return "retry";
       return "done";
     }
-    // First category, or previous one passed → eligible (unlock uses stored
-    // pass flag, NOT hash — so edits don't cascade-lock the entire chain).
-    const prev = idx === 0 ? null : PROGRESS[CATS[idx - 1].id];
-    const unlocked = idx === 0 || (prev && prev.passed);
-    if (!unlocked) return "locked";
     if (p && p.attempts > 0 && !p.passed) return "retry";
     return "open";
   }
@@ -1173,10 +1173,9 @@
     const cat = CATS.find(c => c.id === id);
     if (!cat) return renderGrid();
     const idx = CATS.indexOf(cat);
-    const stat = statusFor(idx);
-    if (stat === "locked" && !isAdmin()) return renderGrid();
     // "Education" (SOP + Objection reading) view is turned off — every category
     // click goes straight to the quiz. Legacy #/cat/* URLs redirect for safety.
+    // No unlock gating: every category is always accessible.
     if (view === "cat") { location.replace("#/quiz/" + id); return; }
     if (view === "quiz") return renderQuiz(cat, idx);
   }
@@ -1205,14 +1204,13 @@
     CATS.forEach((c, idx) => {
       const stat = statusFor(idx);
       const p = PROGRESS[c.id] || {};
-      const isLocked = stat === "locked";
-      const isOpen   = stat === "open";
-      const isDone   = stat === "done";
+      const isOpen = stat === "open";
+      const isDone = stat === "done";
+      // No "locked" state any more — every category is always accessible.
       const STATUS_LBL = {
-        done:   { label: "Passed",       cls: "done"   },
-        open:   { label: "Ready",        cls: "open"   },
-        retry:  { label: "Retry",        cls: "retry"  },
-        locked: { label: "Locked",       cls: "locked" },
+        done:  { label: "Passed", cls: "done"  },
+        open:  { label: "Ready",  cls: "open"  },
+        retry: { label: "Retry",  cls: "retry" },
       }[stat];
 
       let footer;
@@ -1220,22 +1218,17 @@
         footer = `
           <span class="score-text">Score · <strong>${p.best || 100}%</strong></span>
           <button class="btn ghost" data-act="quiz" data-id="${c.id}">Retake</button>`;
-      } else if (isOpen) {
-        footer = `
-          <span class="score-text">Ready to start</span>
-          <button class="btn primary" data-act="quiz" data-id="${c.id}">Start Quiz →</button>`;
       } else if (stat === "retry") {
         footer = `
           <span class="score-text">Last · <strong class="fail">${p.last || 0}%</strong></span>
           <button class="btn primary" data-act="quiz" data-id="${c.id}">Retry →</button>`;
       } else {
         footer = `
-          <span class="lock-note">Previous 100% needed</span>
-          <button class="btn disabled" disabled>Locked</button>`;
+          <span class="score-text">Ready to start</span>
+          <button class="btn primary" data-act="quiz" data-id="${c.id}">Start Quiz →</button>`;
       }
 
       const cardCls = ["card"];
-      if (isLocked) cardCls.push("locked");
       if (isOpen || stat === "retry") cardCls.push("is-open");
       if (isDone) cardCls.push("is-done");
 
@@ -1244,7 +1237,7 @@
       const dosCount = (c.dos || []).length + (c.donts || []).length;
 
       cardsHtml += `
-        <div class="${cardCls.join(" ")}" data-act="quiz" data-id="${isLocked ? "" : c.id}">
+        <div class="${cardCls.join(" ")}" data-act="quiz" data-id="${c.id}">
           <div class="card-top">
             <div class="cat-icon">${c.icon}</div>
             ${isDone ? "" : `<span class="status ${STATUS_LBL.cls}"><span class="dot"></span>${STATUS_LBL.label}</span>`}
@@ -1264,7 +1257,6 @@
       done: CATS.filter((_, i) => statusFor(i) === "done").length,
       open: CATS.filter((_, i) => statusFor(i) === "open").length,
       retry: CATS.filter((_, i) => statusFor(i) === "retry").length,
-      locked: CATS.filter((_, i) => statusFor(i) === "locked").length,
     };
 
     const firstName = (currentName().split(/\s+/)[0]) || "Agent";
@@ -1276,7 +1268,7 @@
       <div class="page-head">
         <div>
           <h1>${greet}, ${escapeHtml(firstName)} <span class="emoji-bounce">👋</span></h1>
-          <div class="lede">Har category ke liye MCQ test do — quiz me <strong>100%</strong> score karein tabhi agli category unlock hogi.</div>
+          <div class="lede">Har category ka MCQ test do. Sab categories khuli hain — jaisa comfortable ho waisa attempt karo.</div>
           <div class="progress-track" style="margin-top:18px;"><div class="progress-fill" style="width:${pct}%"></div></div>
           <div style="margin-top:8px; font-size:12px; color:var(--muted);"><strong style="color:var(--ink);">${done} / ${total}</strong> categories complete · ${pct}%</div>
         </div>
@@ -1301,7 +1293,6 @@
           <span class="dot-passed">${counts.done} passed</span>
           <span class="dot-retry">${counts.retry} retry</span>
           <span class="dot-ready">${counts.open} ready</span>
-          <span class="dot-locked">${counts.locked} locked</span>
         </span>
       </div>
       <div class="grid">${cardsHtml || `<div class="error-block">Koi category load nahi hui — sheet check karein.</div>`}</div>
@@ -1470,7 +1461,7 @@
           <div class="options" id="optsList">${optsHtml}</div>
           <div class="feedback" id="fb"></div>
           <div class="quiz-footer">
-            <div class="hint">100% chahiye pass ke liye</div>
+            <div class="hint">100% score = passed</div>
             <button class="btn primary" id="nextBtn" disabled style="opacity:0.5;">
               ${qIdx === questions.length - 1 ? "Finish 🏁" : "Next →"}
             </button>
@@ -1557,7 +1548,7 @@
         emoji = "🏆"; title = "Perfect Score!"; cls = "pass";
         const nextIdx = idx + 1;
         if (nextIdx < CATS.length) {
-          msg = `${correctCount} / ${questions.length} sahi! Agli category — <strong>${escapeHtml(CATS[nextIdx].name)}</strong> — ab unlock ho gayi 🔓`;
+          msg = `${correctCount} / ${questions.length} sahi! Aap chaho to <strong>${escapeHtml(CATS[nextIdx].name)}</strong> ka test bhi try kar sakte ho.`;
         } else {
           msg = `🎉 Aapne saari ${CATS.length} categories complete kar li! <strong>Training champion!</strong>`;
         }
@@ -1570,7 +1561,7 @@
         } else {
           emoji = "🤔"; title = "SOP dobara padho"; cls = "fail";
         }
-        msg = `<strong>${correctCount} sahi · ${wrong} galat.</strong><br>Aage badhne ke liye saare ${questions.length} sahi karne honge — 100% chahiye. Wapas SOP padh ke retry karo.`;
+        msg = `<strong>${correctCount} sahi · ${wrong} galat.</strong><br>100% laane ke liye retry karo — koi baat nahi, jitni baar chaho.`;
       }
 
       const next = CATS[idx + 1];
@@ -1594,8 +1585,8 @@
 
       if (passed) {
         launchConfetti();
-        if (!wasPassed && next) {
-          showToast(`🔓 Unlocked: ${next.name}`);
+        if (!wasPassed) {
+          showToast(`🏆 ${cat.name} — passed!`);
         }
       }
     }
