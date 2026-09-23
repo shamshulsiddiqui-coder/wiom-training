@@ -468,7 +468,12 @@
       subCat:   findCol(h => h.includes("sub category") || h.includes("subcategory")),
       dosdont:  findCol(h => h.includes("do") && h.includes("don")),
       verbatim: findCol(h => h.includes("verbatim")),
-      // Legacy fallbacks — old sheet had these columns; if present we still read them.
+      // Doc-URL columns — these hold Google Doc tab links whose bodies are
+      // fetched at quiz time to source Scenario→Resolution and CSP→Agent
+      // Q/A pairs (the primary quiz material).
+      sopDoc:   findCol(h => h === "sop" || h.startsWith("sop l") || h === "sop l1"),
+      objDoc:   findCol(h => h.includes("objection")),
+      // Legacy old-sheet compat.
       sop:      findCol(h => h === "sop" || h.startsWith("sop l") || h === "sop l1"),
       obj:      findCol(h => h.includes("objection")),
       test:     findCol(h => h === "test" || h === "enable" || h.startsWith("test ")),
@@ -542,13 +547,19 @@
 
       if (!groups.has(catName)) {
         orderedKeys.push(catName);
-        groups.set(catName, { subCategories: [], dos: [], donts: [], verbatims: [] });
+        groups.set(catName, { subCategories: [], dos: [], donts: [], verbatims: [], docs: [] });
       }
       const g = groups.get(catName);
       if (subName && !g.subCategories.includes(subName)) g.subCategories.push(subName);
       dos.forEach(t => g.dos.push({ text: t, sub: subName }));
       donts.forEach(t => g.donts.push({ text: t, sub: subName }));
       verbatims.forEach(t => g.verbatims.push({ text: t, sub: subName }));
+      // Collect SOP + Objection Google Doc tab URLs — dedup happens per-category
+      // later inside fetchDocPairs (we push all first).
+      const sopUrl = col.sopDoc >= 0 ? (r[col.sopDoc] || "").trim() : "";
+      const objUrl = col.objDoc >= 0 ? (r[col.objDoc] || "").trim() : "";
+      if (sopUrl.startsWith("http")) g.docs.push({ url: sopUrl, kind: "sop", sub: subName });
+      if (objUrl.startsWith("http")) g.docs.push({ url: objUrl, kind: "obj", sub: subName });
     }
 
     const list = [];
@@ -556,7 +567,7 @@
     for (const catName of orderedKeys) {
       const g = groups.get(catName);
       // Require at least SOME quiz-usable content — else skip
-      if (g.dos.length + g.donts.length + g.verbatims.length === 0) continue;
+      if (g.dos.length + g.donts.length + g.verbatims.length + g.docs.length === 0) continue;
       const id = slugify(catName) || `cat-${order}`;
       list.push({
         id, name: catName, level: "L1",
@@ -564,6 +575,7 @@
         order: order++,
         subCategories: g.subCategories,
         dos: g.dos, donts: g.donts, verbatims: g.verbatims,
+        docs: g.docs, // Doc tab URLs — fetched lazily at quiz time
         // Legacy fields kept empty for any old code paths that peek at them
         sopSteps: [], objections: [],
         contentHash: contentHashOf(g.dos, g.donts, g.verbatims),
@@ -607,77 +619,186 @@
     };
   }
 
-  function generateQuiz(cat) {
-    const questions = [];
-    const pools = buildDistractorPools(cat);
-    const dos       = (cat.dos      || []).map(d => d.text);
-    const donts     = (cat.donts    || []).map(d => d.text);
-    const verbatims = (cat.verbatims|| []).map(v => v.text);
+  // ==========================================================================
+  //  DOC-BASED CONTENT — fetch each row's SOP + Objection Google Doc tab as
+  //  plain text, extract Q/A pairs, and cache per-category. The main quiz
+  //  source for the "process-oriented" questions the trainer requested.
+  // ==========================================================================
 
-    // ==========================================================
-    // Type 1: CSP asks a real verbatim question → pick correct
-    // practice (DO). Distractors mix in DON'Ts from same cat +
-    // DO's from other categories.
-    // ==========================================================
-    verbatims.forEach(v => {
-      if (dos.length === 0) return;
-      const correct = shuffle(dos)[0];
-      let distractors = [
-        ...pickN(donts, correct, 1),
-        ...pickN(pools.otherDos, correct, 2),
-      ].filter(x => x !== correct);
-      if (distractors.length < 3) {
-        distractors = distractors.concat(pickN(pools.otherDonts, correct, 3 - distractors.length));
+  // Convert a Google Doc edit URL (with `?tab=t.XXX`) into an export?format=txt URL.
+  function tabExportUrl(rawUrl) {
+    if (!rawUrl) return "";
+    const m = String(rawUrl).match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+    if (!m) return "";
+    const docId = m[1];
+    const tabMatch = String(rawUrl).match(/[?&]tab=([a-zA-Z0-9._-]+)/);
+    const tab = tabMatch ? tabMatch[1] : "";
+    const base = "https://docs.google.com/document/d/" + docId + "/export?format=txt";
+    return tab ? base + "&tab=" + tab : base;
+  }
+
+  // Extract Q/A pairs from a Google Doc text export. Supports:
+  //   Format 1: `Scenario:\n <text>\nResolution:\n<bullets>`  (SOP tabs)
+  //   Format 2: `N. CSP: <text>\nAgent:\n<text>`               (Objection tabs)
+  // Blocks are separated by long underscore lines (5+). Header lines before
+  // the first "N." are skipped.
+  function parseDocContent(text) {
+    if (!text || !text.trim()) return [];
+    const pairs = [];
+    // Normalize separators
+    const cleaned = String(text).replace(/_{5,}/g, "\n---SEP---\n");
+    const blocks = cleaned.split(/---SEP---/);
+
+    for (let block of blocks) {
+      block = block.trim();
+      if (!block || block.length < 20) continue;
+
+      // Try Scenario/Resolution first
+      const scen = block.match(/Scenario\s*:\s*\n?([\s\S]+?)\nResolution\s*:\s*\n?([\s\S]+?)$/i);
+      if (scen) {
+        const q = scen[1].trim().replace(/\s+/g, " ");
+        let a = scen[2].trim().replace(/\n+/g, " • ").replace(/\s+/g, " ");
+        // Trim trailing "________________" leftovers
+        a = a.replace(/[•\s]+$/g, "").trim();
+        if (q.length > 12 && q.length < 500 && a.length > 15 && a.length < 800) {
+          pairs.push({ q, a, kind: "process" });
+        }
+        continue;
       }
-      distractors = distractors.slice(0, 3);
-      if (distractors.length < 3) return;
-      questions.push(makeQuestion(
-        `CSP: "${v}" — is situation me sahi practice kya hai?`,
-        correct,
-        [correct, ...distractors],
-        `Ye is category ka Do hai — hamesha follow karo.`
-      ));
+
+      // Try CSP/Agent pairs — require numbered prefix so we skip header lines
+      const cspRe = /(?:^|\n)\s*\d+\.\s*(?:CSP\s*[:\-]\s*)?([\s\S]+?)\n\s*Agent\s*[:\-]\s*([\s\S]+?)(?=(?:\n\s*\d+\.)|$)/gi;
+      let m;
+      while ((m = cspRe.exec(block)) !== null) {
+        let q = m[1].replace(/^\s*CSP\s*[:\-]\s*/i, "").replace(/\n+/g, " ").trim();
+        let a = m[2].replace(/\n+/g, " ").trim();
+        // Strip common trailing artefacts
+        a = a.replace(/\s*[•\-]\s*$/, "").trim();
+        if (q.length > 8 && q.length < 400 && a.length > 15 && a.length < 800) {
+          pairs.push({ q, a, kind: "objection" });
+        }
+      }
+    }
+    return pairs;
+  }
+
+  // Per-category in-memory doc-pair cache (populated by fetchDocPairs).
+  const DOC_PAIRS_CACHE = {};
+
+  // Fetch every SOP + Objection Doc tab for a category, parse into Q/A pairs.
+  // Deduplicates URLs, runs fetches in parallel. Returns [] on total failure
+  // so quiz still works via DO/DON'T fallback.
+  async function fetchDocPairs(cat) {
+    if (DOC_PAIRS_CACHE[cat.id]) return DOC_PAIRS_CACHE[cat.id];
+    const urls = [];
+    const seen = {};
+    for (const d of (cat.docs || [])) {
+      const u = tabExportUrl(d.url);
+      if (u && !seen[u]) { seen[u] = true; urls.push(u); }
+    }
+    if (urls.length === 0) { DOC_PAIRS_CACHE[cat.id] = []; return []; }
+
+    const results = await Promise.all(urls.map(u =>
+      fetch(u, { cache: "no-store" })
+        .then(r => r.ok ? r.text() : "")
+        .catch(() => "")
+    ));
+    const allPairs = [];
+    for (const text of results) {
+      if (!text) continue;
+      for (const p of parseDocContent(text)) allPairs.push(p);
+    }
+    // Dedupe by question text (some tabs repeat the same content).
+    const uniq = [];
+    const seenQ = {};
+    for (const p of allPairs) {
+      const key = p.q.slice(0, 80).toLowerCase();
+      if (seenQ[key]) continue;
+      seenQ[key] = true;
+      uniq.push(p);
+    }
+    DOC_PAIRS_CACHE[cat.id] = uniq;
+    return uniq;
+  }
+
+  function generateQuiz(cat, docPairs) {
+    docPairs = docPairs || [];
+    const dos   = (cat.dos   || []).map(d => d.text);
+    const donts = (cat.donts || []).map(d => d.text);
+
+    // Global doc-pair distractor pool from OTHER categories.
+    const otherPairsPool = [];
+    Object.keys(DOC_PAIRS_CACHE).forEach(otherId => {
+      if (otherId === cat.id) return;
+      (DOC_PAIRS_CACHE[otherId] || []).forEach(p => otherPairsPool.push(p.a));
     });
 
     // ==========================================================
-    // Type 2: "Which of these is a CORRECT practice for X?" —
-    // correct = a DO from this cat, distractors = DON'Ts from same
-    // cat first (best contrast), then DO's from other cats.
+    // Type 1 (PRIMARY): Doc-based process/objection questions —
+    // "Scenario: X. Correct resolution?" or "CSP: X. Response?"
+    // 3 distractors from OTHER pairs' answers (same cat first,
+    // other cats as fallback). Take up to MAX_QUESTIONS-1 so we
+    // reserve one slot for the DO/DON'T question.
     // ==========================================================
-    dos.forEach(doItem => {
-      let distractors = pickN(donts, doItem, 3);
+    const shuffledPairs = shuffle(docPairs);
+    const otherAnswersInCat = docPairs.map(p => p.a);
+    const docQuestions = [];
+    for (const pair of shuffledPairs) {
+      let distractors = pickN(otherAnswersInCat, pair.a, 3);
       if (distractors.length < 3) {
-        distractors = distractors.concat(pickN(pools.otherDos, doItem, 3 - distractors.length));
+        distractors = distractors.concat(pickN(otherPairsPool, pair.a, 3 - distractors.length));
       }
       distractors = distractors.slice(0, 3);
-      if (distractors.length < 3) return;
-      questions.push(makeQuestion(
-        `"${cat.name}" ke liye — kaunsa CORRECT practice (Do) hai?`,
-        doItem,
-        [doItem, ...distractors],
-        `Ye ek Do hai — hamesha follow karo.`
+      if (distractors.length < 3) continue;
+      const prompt = pair.kind === "objection"
+        ? `CSP: "${pair.q}" — aapka correct response kya hoga?`
+        : `Scenario: "${pair.q}" — is situation me sahi resolution kya hai?`;
+      docQuestions.push(makeQuestion(
+        prompt, pair.a,
+        [pair.a, ...distractors],
+        pair.kind === "objection"
+          ? "Yeh standard objection-response script hai."
+          : "Yeh SOP-defined resolution hai."
       ));
-    });
+      if (docQuestions.length >= MAX_QUESTIONS - 1) break;
+    }
 
     // ==========================================================
-    // Type 3: "Which is a DON'T?" — inverse. Correct = a DON'T
-    // from this cat, distractors = DO's from same cat.
+    // Type 2 (SECONDARY): ONE DO/DON'T recognition question —
+    // per new spec, only one per quiz. Correct = a DO, distractors
+    // = DON'Ts from same cat. Mixed formulation of "which is
+    // correct" or "which is a don't" for variety.
     // ==========================================================
-    donts.forEach(dontItem => {
-      let distractors = pickN(dos, dontItem, 3);
-      if (distractors.length < 3) {
-        distractors = distractors.concat(pickN(pools.otherDonts, dontItem, 3 - distractors.length));
+    const doDontQ = (() => {
+      if (dos.length === 0 || donts.length < 3) return null;
+      const flipCoin = Math.random() < 0.5;
+      if (flipCoin) {
+        // "Which is a CORRECT practice?"
+        const correct = shuffle(dos)[0];
+        const distractors = pickN(donts, correct, 3);
+        if (distractors.length < 3) return null;
+        return makeQuestion(
+          `"${cat.name}" ke liye — kaunsa CORRECT practice (Do) hai?`,
+          correct,
+          [correct, ...distractors],
+          "Ye ek Do hai — hamesha follow karo."
+        );
+      } else {
+        // "Which is a DON'T?"
+        const wrongOne = shuffle(donts)[0];
+        const distractors = pickN(dos, wrongOne, 3);
+        if (distractors.length < 3) return null;
+        return makeQuestion(
+          `"${cat.name}" me se — kaunsa GALAT practice (Don't) hai?`,
+          wrongOne,
+          [wrongOne, ...distractors],
+          "Ye ek Don't hai — kabhi na karo."
+        );
       }
-      distractors = distractors.slice(0, 3);
-      if (distractors.length < 3) return;
-      questions.push(makeQuestion(
-        `"${cat.name}" me se — kaunsa GALAT practice (Don't) hai?`,
-        dontItem,
-        [dontItem, ...distractors],
-        `Ye ek Don't hai — kabhi na karo.`
-      ));
-    });
+    })();
 
+    const questions = docQuestions.slice(0, MAX_QUESTIONS - (doDontQ ? 1 : 0));
+    if (doDontQ) questions.push(doDontQ);
     return shuffle(questions).slice(0, MAX_QUESTIONS);
   }
 
@@ -1227,12 +1348,33 @@
   //  VIEWS — QUIZ
   // ===========================================================================
 
-  function renderQuiz(cat, idx) {
-    const questions = generateQuiz(cat);
+  async function renderQuiz(cat, idx) {
+    // Show a loader while we fetch Doc content (parallel per-tab export).
+    // First visit to a category typically fetches ~5-15 tabs (~1-3 sec).
+    // Repeat visits use in-memory cache (instant).
+    $root.innerHTML = `
+      <div class="quiz-shell">
+        <div class="detail-head"><a href="#/" class="back">← All categories</a></div>
+        <div class="spinner-block">
+          <div class="spinner"></div>
+          <div>${escapeHtml(cat.name)} ke liye MCQ tayaar ho rahi hai…</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px;">Process SOP + Objection docs load ho rahe hain.</div>
+        </div>
+      </div>`;
+
+    let docPairs = [];
+    try { docPairs = await fetchDocPairs(cat); }
+    catch (e) { console.warn("[WIOM] doc fetch failed:", e); docPairs = []; }
+
+    // If user navigated away while docs were loading, bail out silently.
+    const hashNow = location.hash || "#/";
+    if (hashNow !== "#/quiz/" + cat.id) return;
+
+    const questions = generateQuiz(cat, docPairs);
     if (questions.length === 0) {
       $root.innerHTML = `
         <div class="error-block">
-          Is category ke liye quiz generate nahi ho payi — SOP/objection data thoda kam hai.
+          Is category ke liye quiz generate nahi ho payi — content thoda kam hai. Trainer se check karayein.
           <br><a href="#/" style="color:inherit;text-decoration:underline;">← Back</a>
         </div>`;
       return;
