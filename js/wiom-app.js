@@ -37,6 +37,7 @@
 
   const ADMIN_EMAIL_FALLBACK = "shamshul.siddiqui@wiom.in";
   const PASS_PCT = 100; // strict — agent must score 100% to unlock next
+  const QUESTIONS_PER_SUB = 5; // 5 MCQs per sub-category; total per quiz = 5 × sub count
 
   // FRESH-START CUTOFF — submissions with a timestamp BEFORE this instant are
   // ignored by the admin dashboard and by the "restore progress from sheet"
@@ -685,17 +686,22 @@
   // Per-category in-memory doc-pair cache (populated by fetchDocPairs).
   const DOC_PAIRS_CACHE = {};
 
-  // Fetch every SOP + Objection Doc tab for a category, parse into Q/A pairs.
-  // Deduplicates URLs, runs fetches in parallel. Returns [] on total failure
-  // so quiz still works via DO/DON'T fallback.
+  // Fetch every SOP + Objection Doc tab for a category, parse into Q/A pairs
+  // TAGGED by the sub-category they came from. Deduplicates URLs to avoid
+  // double-fetching when the same tab powers both SOP and OBJ columns.
+  // Returns [] on total failure so quiz still works via DO/DON'T fallback.
   async function fetchDocPairs(cat) {
     if (DOC_PAIRS_CACHE[cat.id]) return DOC_PAIRS_CACHE[cat.id];
-    const urls = [];
-    const seen = {};
+    // url → { subs:Set, kind }
+    const urlMeta = new Map();
     for (const d of (cat.docs || [])) {
       const u = tabExportUrl(d.url);
-      if (u && !seen[u]) { seen[u] = true; urls.push(u); }
+      if (!u) continue;
+      if (!urlMeta.has(u)) urlMeta.set(u, { subs: [], kind: d.kind });
+      const meta = urlMeta.get(u);
+      if (!meta.subs.includes(d.sub)) meta.subs.push(d.sub);
     }
+    const urls = Array.from(urlMeta.keys());
     if (urls.length === 0) { DOC_PAIRS_CACHE[cat.id] = []; return []; }
 
     const results = await Promise.all(urls.map(u =>
@@ -704,15 +710,26 @@
         .catch(() => "")
     ));
     const allPairs = [];
-    for (const text of results) {
+    for (let i = 0; i < urls.length; i++) {
+      const text = results[i];
       if (!text) continue;
-      for (const p of parseDocContent(text)) allPairs.push(p);
+      const meta = urlMeta.get(urls[i]);
+      const sub = meta.subs[0]; // pick first sub as the tag
+      const defaultKind = meta.kind; // sop | obj
+      for (const p of parseDocContent(text)) {
+        allPairs.push({
+          q: p.q,
+          a: p.a,
+          kind: p.kind || defaultKind,
+          sub,
+        });
+      }
     }
-    // Dedupe by question text (some tabs repeat the same content).
+    // Dedupe by sub+question text (same content can appear across tabs).
     const uniq = [];
     const seenQ = {};
     for (const p of allPairs) {
-      const key = p.q.slice(0, 80).toLowerCase();
+      const key = (p.sub + "|" + p.q.slice(0, 80)).toLowerCase();
       if (seenQ[key]) continue;
       seenQ[key] = true;
       uniq.push(p);
@@ -721,85 +738,105 @@
     return uniq;
   }
 
+  // NEW MODEL — generate QUESTIONS_PER_SUB (5) MCQs for EACH sub-category
+  // in the category, tagged with the sub-cat name so the quiz UI can render
+  // that name as a header above every question. Questions within a sub-cat
+  // are shuffled; sub-cats are kept in sheet order so the quiz naturally
+  // walks through the whole category.
   function generateQuiz(cat, docPairs) {
     docPairs = docPairs || [];
-    const dos   = (cat.dos   || []).map(d => d.text);
-    const donts = (cat.donts || []).map(d => d.text);
+    const subOrder = (cat.subCategories || []).slice();
+    // Ensure any sub that only appears via doc pairs is included too
+    docPairs.forEach(p => { if (p.sub && !subOrder.includes(p.sub)) subOrder.push(p.sub); });
+    if (subOrder.length === 0) subOrder.push(cat.name);
 
-    // Global doc-pair distractor pool from OTHER categories.
-    const otherPairsPool = [];
-    Object.keys(DOC_PAIRS_CACHE).forEach(otherId => {
-      if (otherId === cat.id) return;
-      (DOC_PAIRS_CACHE[otherId] || []).forEach(p => otherPairsPool.push(p.a));
+    // Group content per sub-category
+    const bySub = {};
+    subOrder.forEach(s => { bySub[s] = { docs: [], dos: [], donts: [] }; });
+    docPairs.forEach(p => {
+      const s = p.sub && bySub[p.sub] ? p.sub : subOrder[0];
+      bySub[s].docs.push(p);
+    });
+    (cat.dos || []).forEach(d => {
+      const s = d.sub && bySub[d.sub] ? d.sub : subOrder[0];
+      bySub[s].dos.push(d.text);
+    });
+    (cat.donts || []).forEach(d => {
+      const s = d.sub && bySub[d.sub] ? d.sub : subOrder[0];
+      bySub[s].donts.push(d.text);
     });
 
-    // ==========================================================
-    // Type 1 (PRIMARY): Doc-based process/objection questions —
-    // "Scenario: X. Correct resolution?" or "CSP: X. Response?"
-    // 3 distractors from OTHER pairs' answers (same cat first,
-    // other cats as fallback). Take up to MAX_QUESTIONS-1 so we
-    // reserve one slot for the DO/DON'T question.
-    // ==========================================================
-    const shuffledPairs = shuffle(docPairs);
-    const otherAnswersInCat = docPairs.map(p => p.a);
-    const docQuestions = [];
-    for (const pair of shuffledPairs) {
-      let distractors = pickN(otherAnswersInCat, pair.a, 3);
-      if (distractors.length < 3) {
-        distractors = distractors.concat(pickN(otherPairsPool, pair.a, 3 - distractors.length));
+    // Global distractor pools (all answers across the whole category + across
+    // OTHER categories as second-tier fallback for small/empty subs).
+    const catAnswers = docPairs.map(p => p.a);
+    const otherAnswers = [];
+    Object.keys(DOC_PAIRS_CACHE).forEach(otherId => {
+      if (otherId === cat.id) return;
+      (DOC_PAIRS_CACHE[otherId] || []).forEach(p => otherAnswers.push(p.a));
+    });
+
+    const questions = [];
+
+    for (const sub of subOrder) {
+      const s = bySub[sub] || { docs: [], dos: [], donts: [] };
+      const subQuestions = [];
+
+      // -- 1) Doc-based questions from THIS sub's own tabs (process + objection)
+      const shuffledDocs = shuffle(s.docs);
+      for (const pair of shuffledDocs) {
+        if (subQuestions.length >= QUESTIONS_PER_SUB) break;
+        // Distractor pool: OTHER sub's answers in same category first, then
+        // other-category answers. Keeps distractors plausible but distinct.
+        const otherInCat = catAnswers.filter(a => a !== pair.a);
+        let distractors = pickN(otherInCat, pair.a, 3);
+        if (distractors.length < 3) {
+          distractors = distractors.concat(pickN(otherAnswers, pair.a, 3 - distractors.length));
+        }
+        distractors = distractors.slice(0, 3);
+        if (distractors.length < 3) continue;
+        // SIMPLE wording — trainer explicitly asked for simple, understandable.
+        const prompt = pair.kind === "objection"
+          ? `CSP kehta hai: "${pair.q}"\nAapka correct response kya hoga?`
+          : `Situation: "${pair.q}"\nSahi tarika kya hai?`;
+        const q = makeQuestion(
+          prompt, pair.a,
+          [pair.a, ...distractors],
+          ""
+        );
+        q.subCategory = sub;
+        subQuestions.push(q);
       }
-      distractors = distractors.slice(0, 3);
-      if (distractors.length < 3) continue;
-      const prompt = pair.kind === "objection"
-        ? `CSP: "${pair.q}" — aapka correct response kya hoga?`
-        : `Scenario: "${pair.q}" — is situation me sahi resolution kya hai?`;
-      docQuestions.push(makeQuestion(
-        prompt, pair.a,
-        [pair.a, ...distractors],
-        pair.kind === "objection"
-          ? "Yeh standard objection-response script hai."
-          : "Yeh SOP-defined resolution hai."
-      ));
-      if (docQuestions.length >= MAX_QUESTIONS - 1) break;
+
+      // -- 2) Top up with DO/DON'T questions from THIS sub if we're short of 5
+      const seenDos = new Set(subQuestions.map(q => q.correct));
+      const remainingDos = s.dos.filter(t => !seenDos.has(t));
+      const shuffledDos = shuffle(remainingDos);
+      for (const doItem of shuffledDos) {
+        if (subQuestions.length >= QUESTIONS_PER_SUB) break;
+        // Distractors: prefer this-sub DON'Ts, else cat-wide DON'Ts, else other-cat DON'Ts
+        const catDonts = [];
+        Object.values(bySub).forEach(x => catDonts.push(...x.donts));
+        let distractors = pickN(s.donts, doItem, 3);
+        if (distractors.length < 3) {
+          distractors = distractors.concat(pickN(catDonts, doItem, 3 - distractors.length));
+        }
+        distractors = distractors.slice(0, 3);
+        if (distractors.length < 3) continue;
+        const q = makeQuestion(
+          `"${sub}" me — kaunsa correct practice hai?`,
+          doItem,
+          [doItem, ...distractors],
+          ""
+        );
+        q.subCategory = sub;
+        subQuestions.push(q);
+      }
+
+      // Append this sub's questions to the master list (preserves sub order)
+      questions.push(...subQuestions);
     }
 
-    // ==========================================================
-    // Type 2 (SECONDARY): ONE DO/DON'T recognition question —
-    // per new spec, only one per quiz. Correct = a DO, distractors
-    // = DON'Ts from same cat. Mixed formulation of "which is
-    // correct" or "which is a don't" for variety.
-    // ==========================================================
-    const doDontQ = (() => {
-      if (dos.length === 0 || donts.length < 3) return null;
-      const flipCoin = Math.random() < 0.5;
-      if (flipCoin) {
-        // "Which is a CORRECT practice?"
-        const correct = shuffle(dos)[0];
-        const distractors = pickN(donts, correct, 3);
-        if (distractors.length < 3) return null;
-        return makeQuestion(
-          `"${cat.name}" ke liye — kaunsa CORRECT practice (Do) hai?`,
-          correct,
-          [correct, ...distractors],
-          "Ye ek Do hai — hamesha follow karo."
-        );
-      } else {
-        // "Which is a DON'T?"
-        const wrongOne = shuffle(donts)[0];
-        const distractors = pickN(dos, wrongOne, 3);
-        if (distractors.length < 3) return null;
-        return makeQuestion(
-          `"${cat.name}" me se — kaunsa GALAT practice (Don't) hai?`,
-          wrongOne,
-          [wrongOne, ...distractors],
-          "Ye ek Don't hai — kabhi na karo."
-        );
-      }
-    })();
-
-    const questions = docQuestions.slice(0, MAX_QUESTIONS - (doDontQ ? 1 : 0));
-    if (doDontQ) questions.push(doDontQ);
-    return shuffle(questions).slice(0, MAX_QUESTIONS);
+    return questions;
   }
 
   // ===========================================================================
@@ -1418,8 +1455,16 @@
         </div>`
       ).join("");
 
+      // Show a sub-category header ABOVE each question — quiz walks through
+      // the category one sub-category at a time (5 Qs per sub), and the agent
+      // should always know which topic they're being tested on.
+      const subHeader = q.subCategory
+        ? `<div class="q-sub">📂 ${escapeHtml(q.subCategory)}</div>`
+        : "";
+
       document.getElementById("qArea").innerHTML = `
         <div class="q-card">
+          ${subHeader}
           <div class="q-number">Question ${qIdx + 1} of ${questions.length}</div>
           <div class="q-text">${escapeHtml(q.text)}</div>
           <div class="options" id="optsList">${optsHtml}</div>
