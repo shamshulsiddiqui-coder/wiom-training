@@ -11,7 +11,7 @@
 
   // ---------------------------------------------------------------- CONFIG
   const SHEET_CSV_URL =
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYPYyZhwUSueU8eqS16RwqU8N3SQOhrZrS5hIqjjE_IAUpkqCy5ViyqdL3VY1y-Xn5z5_wbbwXQmXU/pub?gid=1409757378&single=true&output=csv";
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS64RYLi5Iom7MZUiHAmsUvU294R_djUCX3EXtfgqXE-PV1ywaE1SYavfCPqecpcApMncsZKd1kt-t3/pub?output=csv";
 
   // PASTE YOUR DEPLOYED APPS SCRIPT WEB-APP URL HERE.
   // Leave empty ("") to run in local-only mode (no cloud sync, admin view disabled).
@@ -53,9 +53,13 @@
 
   // Bump this to force-logout all users on next page load.
   // Use case: a breaking change (new login flow, new schema) where stale state
-  // would cause data loss or confusion. Was bumped to "2" when Form writeback
-  // went live so pre-Form agents start fresh.
-  const APP_VERSION = "2";
+  // would cause data loss or confusion.
+  //   "2" — Form writeback launched (pre-Form agents needed fresh start).
+  //   "3" — Source sheet swapped; grouping moved from sub-category rows to
+  //         parent CATEGORY rows; SOP-reading view removed. Old category slugs
+  //         no longer exist, so old localStorage progress is orphaned and gets
+  //         wiped cleanly on next load.
+  const APP_VERSION = "3";
   let WAS_RESET = false;
 
   // ---------------------------------------------------------------- DOM refs
@@ -100,12 +104,14 @@
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "").slice(0, 50);
   }
-  // Simple non-cryptographic hash (DJB2 variant) — used to fingerprint SOP +
-  // objection content. When trainer edits the sheet, this hash changes,
-  // which invalidates prior passes (so agent must retake the quiz).
-  function contentHashOf(sopSteps, objections) {
-    const s = (sopSteps || []).join("|") + "||" +
-      (objections || []).map(o => (o.objection || "") + "→" + (o.response || "")).join("|");
+  // Simple non-cryptographic hash (DJB2 variant) — fingerprints a category's
+  // DO's / DON'T's / Question Verbatims. When trainer edits any of these in the
+  // sheet, the hash changes and prior passes get invalidated (agent must retake).
+  function contentHashOf(dos, donts, verbatims) {
+    const s =
+      (dos || []).map(d => (d && d.text) || d || "").join("|") + "||" +
+      (donts || []).map(d => (d && d.text) || d || "").join("|") + "||" +
+      (verbatims || []).map(v => (v && v.text) || v || "").join("|");
     let h = 5381;
     for (let i = 0; i < s.length; i++) {
       h = ((h << 5) + h + s.charCodeAt(i)) | 0;
@@ -147,25 +153,32 @@
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
-  // Auto-assign a category icon based on keywords in the name.
+  // Auto-assign a category icon based on keywords in the name. Order matters —
+  // most specific rules first (netbox before "net"; payout before "customer").
   const ICON_RULES = [
-    [/partner|csp/i,             "🤝"],
-    [/payg|recharge|payment|cash|payout|commission|fund|amount|bank/i, "💰"],
-    [/speed|upgrade|mbps|plan/i, "🚀"],
-    [/app|login|exit|crash/i,    "📱"],
+    [/router|device|netbox|adapter|hardware|swap|inventory|pickup/i, "📦"],
+    [/payout|wallet|rating|payg|recharge|payment|cash|commission|fund|amount|bank/i, "💰"],
+    [/ticket|grievance/i,        "🎫"],
+    [/new project|launch/i,      "🚀"],
+    [/technical|tech support|tech/i, "⚙️"],
     [/install|installation|connection|onboard/i, "🔧"],
-    [/network|outage|ssid|wifi|net|signal/i,     "📡"],
-    [/router|device|netbox|adapter|hardware|swap|inventory|pickup/i,   "📦"],
+    [/app|login|exit|crash/i,    "📱"],
     [/lead|sales/i,              "🎯"],
+    [/csp account|account management|profile|kyc/i, "👤"],
+    [/customer.*lifecycle|lifecycle|churn|onboarding/i, "👥"],
+    [/partner|csp/i,             "🤝"],
+    [/speed|upgrade|mbps|plan/i, "⚡"],
+    [/network|outage|ssid|wifi|net|signal/i, "📡"],
     [/feedback|rating|survey/i,  "⭐"],
-    [/escalation|complaint|ticket|grievance/i,   "⚠️"],
+    [/escalation|complaint/i,    "⚠️"],
     [/customer|user/i,           "👤"],
-    [/franchise|owner|merchand|t-shirt/i,        "🏪"],
-    [/security|refund|terminate|breach|fraud/i,  "🛡️"],
+    [/franchise|owner|merchand|t-shirt/i, "🏪"],
+    [/security|refund|terminate|breach|fraud/i, "🛡️"],
     [/lottery|reward|bonus/i,    "🎁"],
     [/call|ivr|number/i,         "📞"],
     [/visit|engineer/i,          "🛠️"],
-    [/status|update|info|detail|enquiry/i,       "🔍"],
+    [/status|update|info|detail|enquiry/i, "🔍"],
+    [/other/i,                   "📋"],
   ];
   function iconFor(name) {
     for (const [re, emoji] of ICON_RULES) {
@@ -256,6 +269,35 @@
   // ===========================================================================
   //  OBJECTION PARSER — splits "👉 quoted-objection \n quoted-response" blocks
   // ===========================================================================
+
+  // Parse a "✅ Do's ... ❌ Don'ts" style cell into two lists of bullets.
+  // Bullets can be marked with * / • / - / numbered. Bold ** wrappers stripped.
+  function parseDosDonts(text) {
+    if (!text || !text.trim()) return { dos: [], donts: [] };
+    const cleaned = String(text).replace(/\*\*/g, "");
+    // Split on ❌ / Don'ts / Donts header
+    const parts = cleaned.split(/❌\s*Don'?ts?\b|\bDon'?ts?\s*:?/i);
+    const doPart   = (parts[0] || "").replace(/✅\s*Do'?s?\b|\bDo'?s?\s*:?/i, "").trim();
+    const dontPart = (parts.slice(1).join(" ") || "").trim();
+    const parseList = (s) => {
+      return s.split(/\n+/)
+        .map(l => l.replace(/^\s*(?:\d+[\.\):]|[\*•\-–—✓✅❌])\s*/, "").trim())
+        .filter(l => l.length > 6 && !/^Do'?s?$|^Don'?ts?$/i.test(l));
+    };
+    return { dos: parseList(doPart), donts: parseList(dontPart) };
+  }
+
+  // Parse a "1. Q  2. Q  3. Q" numbered/bulleted column into a plain list.
+  function parseVerbatims(text) {
+    if (!text || !text.trim()) return [];
+    const cleaned = String(text).replace(/\*\*/g, "");
+    const out = [];
+    for (const raw of cleaned.split(/\n+/)) {
+      const stripped = raw.replace(/^\s*(?:\d+[\.\):]|[\*•\-–—])\s*/, "").trim();
+      if (stripped.length > 8) out.push(stripped);
+    }
+    return out;
+  }
 
   function parseObjections(text) {
     if (!text || !text.trim()) return [];
@@ -393,39 +435,109 @@
     return parseSheet(csvText);
   }
 
+  // Parse the new-format sheet:
+  //   17 columns — S.No | Bucket | CATEGORY | SUB CATEGORY | Count | Accuracy |
+  //   SOP | OBJECTION HANDLING | TOOLS | OWNER | DO'S AND DON'T | TAT |
+  //   Question Verbatims | QUESTIONS-TEAM | ISSUE DESCRIPTION-SHAMSHUL |
+  //   ISSUE DESCRIPTION-TEAM | cross check
+  //
+  // We group by CATEGORY (col 2) — one card per unique category (~11 total)
+  // that aggregates DO's, DON'Ts, and Question Verbatims across all its
+  // sub-category rows. This is what powers the MCQ quiz.
+  //
+  // Rows with an empty CATEGORY are skipped. No Enable/Test column — we simply
+  // show every category that has at least ONE quiz-usable content item.
   function parseSheet(csvText) {
     const rows = parseCSV(csvText);
     if (rows.length < 2) return [];
     const header = rows[0].map(h => h.trim().toLowerCase());
-    // Locate columns by header name (tolerant of trailing spaces)
+    const findCol = (matcher) => header.findIndex(matcher);
     const col = {
-      name: header.findIndex(h => h.includes("sub category") || h.includes("category")),
-      sop:  header.findIndex(h => h.includes("sop")),
-      obj:  header.findIndex(h => h.includes("objection")),
-      test: header.findIndex(h => h.includes("test") || h.includes("enable")),
+      category: findCol(h => h === "category" || h.startsWith("category ")),
+      subCat:   findCol(h => h.includes("sub category") || h.includes("subcategory")),
+      dosdont:  findCol(h => h.includes("do") && h.includes("don")),
+      verbatim: findCol(h => h.includes("verbatim")),
+      // Legacy fallbacks — old sheet had these columns; if present we still read them.
+      sop:      findCol(h => h === "sop" || h.startsWith("sop l") || h === "sop l1"),
+      obj:      findCol(h => h.includes("objection")),
+      test:     findCol(h => h === "test" || h === "enable" || h.startsWith("test ")),
     };
 
-    const list = [];
+    // Detect which shape we're dealing with
+    const isNewShape = col.category >= 0 && (col.dosdont >= 0 || col.verbatim >= 0);
+
+    if (!isNewShape) {
+      // Fall back to the LEGACY parser for the old sheet format
+      const list = [];
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        if (!r || r.length === 0) continue;
+        if (col.test >= 0) {
+          const flag = (r[col.test] || "").trim().toLowerCase();
+          if (flag !== ENABLE_VALUE) continue;
+        }
+        const nameIdx = col.subCat >= 0 ? col.subCat : col.category;
+        const name = (r[nameIdx] || "").trim();
+        if (!name) continue;
+        const sopSteps   = parseSopSteps(col.sop >= 0 ? r[col.sop] || "" : "");
+        const objections = parseObjections(col.obj >= 0 ? r[col.obj] || "" : "");
+        const level = /\bL2\b/i.test(name) ? "L2" : "L1";
+        const id = slugify(name) || `cat-${i}`;
+        list.push({
+          id, name, level,
+          sopSteps, objections, dos: [], donts: [], verbatims: [], subCategories: [name],
+          icon: iconFor(name),
+          order: list.length + 1,
+          contentHash: contentHashOf(sopSteps.map(t => ({ text: t })),
+                                     objections.map(o => ({ text: o.response })),
+                                     []),
+        });
+      }
+      return list;
+    }
+
+    // NEW-SHAPE parsing — group by CATEGORY, aggregate content.
+    const groups = new Map();      // catName → aggregate object
+    const orderedKeys = [];        // preserve first-seen order
+
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i];
       if (!r || r.length === 0) continue;
-      const flag = (r[col.test] || "").trim().toLowerCase();
-      if (flag !== ENABLE_VALUE) continue;
-      const name = (r[col.name] || "").trim();
-      if (!name) continue;
-      const sopText = r[col.sop] || "";
-      const objText = r[col.obj] || "";
-      const sopSteps = parseSopSteps(sopText);
-      const objections = parseObjections(objText);
-      // Detect level from name (heuristic)
-      const level = /\bL2\b/i.test(name) ? "L2" : "L1";
-      const id = slugify(name) || `cat-${i}`;
+      const catName = (r[col.category] || "").trim();
+      if (!catName) continue;
+      const subName = (col.subCat >= 0 ? (r[col.subCat] || "").trim() : "") || catName;
+      const dosDontText = col.dosdont >= 0 ? r[col.dosdont] || "" : "";
+      const verbText    = col.verbatim >= 0 ? r[col.verbatim] || "" : "";
+      const { dos, donts } = parseDosDonts(dosDontText);
+      const verbatims = parseVerbatims(verbText);
+
+      if (!groups.has(catName)) {
+        orderedKeys.push(catName);
+        groups.set(catName, { subCategories: [], dos: [], donts: [], verbatims: [] });
+      }
+      const g = groups.get(catName);
+      if (subName && !g.subCategories.includes(subName)) g.subCategories.push(subName);
+      dos.forEach(t => g.dos.push({ text: t, sub: subName }));
+      donts.forEach(t => g.donts.push({ text: t, sub: subName }));
+      verbatims.forEach(t => g.verbatims.push({ text: t, sub: subName }));
+    }
+
+    const list = [];
+    let order = 1;
+    for (const catName of orderedKeys) {
+      const g = groups.get(catName);
+      // Require at least SOME quiz-usable content — else skip
+      if (g.dos.length + g.donts.length + g.verbatims.length === 0) continue;
+      const id = slugify(catName) || `cat-${order}`;
       list.push({
-        id, name, level,
-        sopSteps, objections,
-        icon: iconFor(name),
-        order: list.length + 1,
-        contentHash: contentHashOf(sopSteps, objections),
+        id, name: catName, level: "L1",
+        icon: iconFor(catName),
+        order: order++,
+        subCategories: g.subCategories,
+        dos: g.dos, donts: g.donts, verbatims: g.verbatims,
+        // Legacy fields kept empty for any old code paths that peek at them
+        sopSteps: [], objections: [],
+        contentHash: contentHashOf(g.dos, g.donts, g.verbatims),
       });
     }
     return list;
@@ -435,17 +547,19 @@
   //  QUIZ GENERATION
   // ===========================================================================
 
+  // Distractor pools for a category's quiz — pull DO's and DON'Ts from
+  // OTHER categories so wrong options are plausible-but-clearly-wrong.
   function buildDistractorPools(thisCat) {
-    const responses = [], steps = [];
+    const otherDos = [], otherDonts = [];
     CATS.forEach(c => {
       if (c.id === thisCat.id) return;
-      c.objections.forEach(o => responses.push(o.response));
-      c.sopSteps.forEach(s => steps.push(s));
+      (c.dos || []).forEach(d => otherDos.push(d.text));
+      (c.donts || []).forEach(d => otherDonts.push(d.text));
     });
-    return { responses, steps };
+    return { otherDos, otherDonts };
   }
   function pickN(pool, exclude, n) {
-    const filtered = pool.filter(x => x && x !== exclude && x.length > 5);
+    const filtered = pool.filter(x => x && x !== exclude && String(x).length > 5);
     return shuffle(filtered).slice(0, n);
   }
 
@@ -467,47 +581,73 @@
   function generateQuiz(cat) {
     const questions = [];
     const pools = buildDistractorPools(cat);
+    const dos       = (cat.dos      || []).map(d => d.text);
+    const donts     = (cat.donts    || []).map(d => d.text);
+    const verbatims = (cat.verbatims|| []).map(v => v.text);
 
-    // Type 1: Objection → response match (richest signal)
-    cat.objections.forEach(obj => {
-      const sameCatOtherResp = cat.objections.filter(o => o.response !== obj.response).map(o => o.response);
-      const distractors = [
-        ...pickN(sameCatOtherResp, obj.response, 2),
-        ...pickN(pools.responses, obj.response, 3),
-      ].slice(0, 3);
+    // ==========================================================
+    // Type 1: CSP asks a real verbatim question → pick correct
+    // practice (DO). Distractors mix in DON'Ts from same cat +
+    // DO's from other categories.
+    // ==========================================================
+    verbatims.forEach(v => {
+      if (dos.length === 0) return;
+      const correct = shuffle(dos)[0];
+      let distractors = [
+        ...pickN(donts, correct, 1),
+        ...pickN(pools.otherDos, correct, 2),
+      ].filter(x => x !== correct);
+      if (distractors.length < 3) {
+        distractors = distractors.concat(pickN(pools.otherDonts, correct, 3 - distractors.length));
+      }
+      distractors = distractors.slice(0, 3);
       if (distractors.length < 3) return;
       questions.push(makeQuestion(
-        `CSP kehta hai: "${obj.objection}" — aapka SAHI response kya hoga?`,
-        obj.response,
-        [obj.response, ...distractors],
-        `Sahi response: standard objection-handling script use karein.`
+        `CSP: "${v}" — is situation me sahi practice kya hai?`,
+        correct,
+        [correct, ...distractors],
+        `Ye is category ka Do hai — hamesha follow karo.`
       ));
     });
 
-    // Type 2: SOP step recall — "kaunsa step is category ka hissa hai?"
-    cat.sopSteps.forEach(step => {
-      if (step.length < 12) return;
-      const distractors = pickN(pools.steps, step, 3);
+    // ==========================================================
+    // Type 2: "Which of these is a CORRECT practice for X?" —
+    // correct = a DO from this cat, distractors = DON'Ts from same
+    // cat first (best contrast), then DO's from other cats.
+    // ==========================================================
+    dos.forEach(doItem => {
+      let distractors = pickN(donts, doItem, 3);
+      if (distractors.length < 3) {
+        distractors = distractors.concat(pickN(pools.otherDos, doItem, 3 - distractors.length));
+      }
+      distractors = distractors.slice(0, 3);
       if (distractors.length < 3) return;
       questions.push(makeQuestion(
-        `Is category "${cat.name}" ke SOP me se ek STEP kaunsa hai?`,
-        step,
-        [step, ...distractors],
-        `Yeh SOP ka actual step hai.`
+        `"${cat.name}" ke liye — kaunsa CORRECT practice (Do) hai?`,
+        doItem,
+        [doItem, ...distractors],
+        `Ye ek Do hai — hamesha follow karo.`
       ));
     });
 
-    // Type 3: First-step recall (if 3+ steps)
-    if (cat.sopSteps.length >= 3) {
-      const first = cat.sopSteps[0];
-      const others = cat.sopSteps.slice(1);
+    // ==========================================================
+    // Type 3: "Which is a DON'T?" — inverse. Correct = a DON'T
+    // from this cat, distractors = DO's from same cat.
+    // ==========================================================
+    donts.forEach(dontItem => {
+      let distractors = pickN(dos, dontItem, 3);
+      if (distractors.length < 3) {
+        distractors = distractors.concat(pickN(pools.otherDonts, dontItem, 3 - distractors.length));
+      }
+      distractors = distractors.slice(0, 3);
+      if (distractors.length < 3) return;
       questions.push(makeQuestion(
-        `"${cat.name}" — process ka SABSE PEHLA step kya hai?`,
-        first,
-        [first, ...pickN(others, first, 3)],
-        `Pehla step: yahi hai.`
+        `"${cat.name}" me se — kaunsa GALAT practice (Don't) hai?`,
+        dontItem,
+        [dontItem, ...distractors],
+        `Ye ek Don't hai — kabhi na karo.`
       ));
-    }
+    });
 
     return shuffle(questions).slice(0, MAX_QUESTIONS);
   }
@@ -848,7 +988,9 @@
     const idx = CATS.indexOf(cat);
     const stat = statusFor(idx);
     if (stat === "locked" && !isAdmin()) return renderGrid();
-    if (view === "cat") return renderDetail(cat, idx);
+    // "Education" (SOP + Objection reading) view is turned off — every category
+    // click goes straight to the quiz. Legacy #/cat/* URLs redirect for safety.
+    if (view === "cat") { location.replace("#/quiz/" + id); return; }
     if (view === "quiz") return renderQuiz(cat, idx);
   }
 
@@ -890,15 +1032,15 @@
       if (isDone) {
         footer = `
           <span class="score-text">Score · <strong>${p.best || 100}%</strong></span>
-          <button class="btn ghost" data-act="open" data-id="${c.id}">Review</button>`;
+          <button class="btn ghost" data-act="quiz" data-id="${c.id}">Retake</button>`;
       } else if (isOpen) {
         footer = `
           <span class="score-text">Ready to start</span>
-          <button class="btn primary" data-act="open" data-id="${c.id}">Begin →</button>`;
+          <button class="btn primary" data-act="quiz" data-id="${c.id}">Start Quiz →</button>`;
       } else if (stat === "retry") {
         footer = `
           <span class="score-text">Last · <strong class="fail">${p.last || 0}%</strong></span>
-          <button class="btn primary" data-act="open" data-id="${c.id}">Retry →</button>`;
+          <button class="btn primary" data-act="quiz" data-id="${c.id}">Retry →</button>`;
       } else {
         footer = `
           <span class="lock-note">Previous 100% needed</span>
@@ -910,8 +1052,12 @@
       if (isOpen || stat === "retry") cardCls.push("is-open");
       if (isDone) cardCls.push("is-done");
 
+      const subCount = (c.subCategories || []).length || 1;
+      const verbCount = (c.verbatims || []).length;
+      const dosCount = (c.dos || []).length + (c.donts || []).length;
+
       cardsHtml += `
-        <div class="${cardCls.join(" ")}" data-act="open" data-id="${isLocked ? "" : c.id}">
+        <div class="${cardCls.join(" ")}" data-act="quiz" data-id="${isLocked ? "" : c.id}">
           <div class="card-top">
             <div class="cat-icon">${c.icon}</div>
             ${isDone ? "" : `<span class="status ${STATUS_LBL.cls}"><span class="dot"></span>${STATUS_LBL.label}</span>`}
@@ -919,8 +1065,9 @@
           <div class="cat-id">${c.level} · ${String(c.order).padStart(2, "0")} of ${total}</div>
           <h3>${escapeHtml(c.name)}</h3>
           <div class="meta">
-            <span class="meta-item">📋 <strong>${c.sopSteps.length}</strong> steps</span>
-            <span class="meta-item">💬 <strong>${c.objections.length}</strong> objections</span>
+            <span class="meta-item">📂 <strong>${subCount}</strong> sub-categor${subCount === 1 ? "y" : "ies"}</span>
+            <span class="meta-item">❓ <strong>${verbCount}</strong> questions</span>
+            <span class="meta-item">✅ <strong>${dosCount}</strong> do/don't</span>
           </div>
           <div class="card-footer">${footer}</div>
         </div>`;
@@ -942,7 +1089,7 @@
       <div class="page-head">
         <div>
           <h1>${greet}, ${escapeHtml(firstName)} <span class="emoji-bounce">👋</span></h1>
-          <div class="lede">SOP padhein, objection handling samjhein, fir quiz me <strong>100%</strong> score karein — tabhi agli category unlock hogi.</div>
+          <div class="lede">Har category ke liye MCQ test do — quiz me <strong>100%</strong> score karein tabhi agli category unlock hogi.</div>
           <div class="progress-track" style="margin-top:18px;"><div class="progress-fill" style="width:${pct}%"></div></div>
           <div style="margin-top:8px; font-size:12px; color:var(--muted);"><strong style="color:var(--ink);">${done} / ${total}</strong> categories complete · ${pct}%</div>
         </div>
@@ -973,12 +1120,14 @@
       <div class="grid">${cardsHtml || `<div class="error-block">Koi category load nahi hui — sheet check karein.</div>`}</div>
     `;
 
-    $root.querySelectorAll('[data-act="open"][data-id]').forEach(el => {
+    // Every card click goes STRAIGHT to the quiz — no education / SOP-reading
+    // step in between (per new dashboard design: "sirf har category ka MCQ test").
+    $root.querySelectorAll('[data-act="quiz"][data-id]').forEach(el => {
       const id = el.getAttribute("data-id");
       if (!id) return;
       el.addEventListener("click", (e) => {
         e.stopPropagation();
-        go(`#/cat/${id}`);
+        go(`#/quiz/${id}`);
       });
     });
   }
@@ -1068,7 +1217,7 @@
     $root.innerHTML = `
       <div class="quiz-shell">
         <div class="detail-head">
-          <a href="#/cat/${cat.id}" class="back">← Back to SOP</a>
+          <a href="#/" class="back">← All categories</a>
         </div>
         <div class="quiz-head">
           <div class="qtitle">${cat.icon} <strong>${escapeHtml(cat.name)}</strong></div>
@@ -1217,11 +1366,11 @@
           <div class="lbl ${cls}">${correctCount} / ${questions.length} ${passed ? "· PASSED" : "· RETRY NEEDED"}</div>
           <div class="msg">${msg}</div>
           <div class="cta-row">
-            <a href="#/cat/${cat.id}" class="btn ghost lg">📖 Review SOP</a>
+            <a href="#/" class="btn ghost lg">🏠 Dashboard</a>
             ${passed
               ? (next
-                  ? `<a href="#/cat/${next.id}" class="btn primary lg">Next Category →</a>`
-                  : `<a href="#/" class="btn primary lg">🏠 Dashboard</a>`)
+                  ? `<a href="#/quiz/${next.id}" class="btn primary lg">Next Quiz →</a>`
+                  : `<a href="#/" class="btn primary lg">🎉 All Done</a>`)
               : `<a href="#/quiz/${cat.id}" class="btn primary lg">🔁 Retry Quiz</a>`}
           </div>
           <div style="margin-top:20px;font-size:12px;"><a href="#/" style="color:var(--muted);text-decoration:none;">← All categories</a></div>
