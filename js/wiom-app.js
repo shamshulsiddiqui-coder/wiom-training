@@ -39,7 +39,16 @@
   const PASS_PCT = 100; // 100% = "passed" mark. Categories are not gated by
                         // this any more — sequential unlock was removed. This
                         // is now purely a tracking / display threshold.
-  const QUESTIONS_PER_SUB = 5; // 5 MCQs per sub-category; total per quiz = 5 × sub count
+  // Quiz sizing (Option C — 4 per sub, cap 20):
+  //   • Every sub-category gets AT LEAST 1 question if content exists
+  //     (coverage guarantee — no topic goes untested).
+  //   • Budget cycles round-robin: sub 1 → sub 2 → … → sub 1 → sub 2 → …
+  //     until a sub has PREFERRED_PER_SUB questions or the total hits
+  //     MAX_TOTAL_QUESTIONS, whichever comes first.
+  //   • Result: small cats get 3-4 Qs per sub; big cats get 1-2 per sub;
+  //     total never exceeds 20 so quiz stays under ~10 minutes.
+  const MAX_TOTAL_QUESTIONS = 20;
+  const PREFERRED_PER_SUB   = 4;
 
   // FRESH-START CUTOFF — submissions with a timestamp BEFORE this instant are
   // ignored by the admin dashboard and by the "restore progress from sheet"
@@ -740,36 +749,30 @@
     return uniq;
   }
 
-  // NEW MODEL — generate QUESTIONS_PER_SUB (5) MCQs for EACH sub-category
-  // in the category, tagged with the sub-cat name so the quiz UI can render
-  // that name as a header above every question. Questions within a sub-cat
-  // are shuffled; sub-cats are kept in sheet order so the quiz naturally
-  // walks through the whole category.
+  // Generate up to MAX_TOTAL_QUESTIONS MCQs for a category.
+  //   Source: ONLY SOP process pairs (Scenario→Resolution) and Objection
+  //           handling pairs (CSP→Agent) — DO/DON'T not used per new spec.
+  //   Coverage: 1 question per sub-category guaranteed (if content exists),
+  //             extras distributed round-robin so bigger subs get 2-3 Qs
+  //             before smaller subs get a second.
+  //   Order: sub-cats in sheet order; a sub-cat's questions stay adjacent so
+  //          the quiz walks topic-by-topic. Within a sub, questions are shuffled.
   function generateQuiz(cat, docPairs) {
     docPairs = docPairs || [];
     const subOrder = (cat.subCategories || []).slice();
-    // Ensure any sub that only appears via doc pairs is included too
     docPairs.forEach(p => { if (p.sub && !subOrder.includes(p.sub)) subOrder.push(p.sub); });
     if (subOrder.length === 0) subOrder.push(cat.name);
 
-    // Group content per sub-category
-    const bySub = {};
-    subOrder.forEach(s => { bySub[s] = { docs: [], dos: [], donts: [] }; });
+    // Group doc pairs per sub, shuffled once
+    const bySubPool = {};
+    subOrder.forEach(s => { bySubPool[s] = []; });
     docPairs.forEach(p => {
-      const s = p.sub && bySub[p.sub] ? p.sub : subOrder[0];
-      bySub[s].docs.push(p);
+      const s = p.sub && bySubPool[p.sub] ? p.sub : subOrder[0];
+      bySubPool[s].push(p);
     });
-    (cat.dos || []).forEach(d => {
-      const s = d.sub && bySub[d.sub] ? d.sub : subOrder[0];
-      bySub[s].dos.push(d.text);
-    });
-    (cat.donts || []).forEach(d => {
-      const s = d.sub && bySub[d.sub] ? d.sub : subOrder[0];
-      bySub[s].donts.push(d.text);
-    });
+    subOrder.forEach(s => { bySubPool[s] = shuffle(bySubPool[s]); });
 
-    // Global distractor pools (all answers across the whole category + across
-    // OTHER categories as second-tier fallback for small/empty subs).
+    // Distractor pools
     const catAnswers = docPairs.map(p => p.a);
     const otherAnswers = [];
     Object.keys(DOC_PAIRS_CACHE).forEach(otherId => {
@@ -777,18 +780,35 @@
       (DOC_PAIRS_CACHE[otherId] || []).forEach(p => otherAnswers.push(p.a));
     });
 
+    // Decide per-sub quota
+    const validSubs = subOrder.filter(s => bySubPool[s].length > 0);
+    if (validSubs.length === 0) return [];
+
+    // Round-robin: keep taking 1 question from each sub in order until we
+    // hit MAX_TOTAL_QUESTIONS, run out of content, or every sub has already
+    // received PREFERRED_PER_SUB questions.
+    const taken = {}; // sub -> array of chosen pairs (preserves order)
+    validSubs.forEach(s => { taken[s] = []; });
+    let total = 0;
+    let progressed = true;
+    while (total < MAX_TOTAL_QUESTIONS && progressed) {
+      progressed = false;
+      for (const sub of validSubs) {
+        if (total >= MAX_TOTAL_QUESTIONS) break;
+        const pool = bySubPool[sub];
+        const alreadyTaken = taken[sub].length;
+        if (alreadyTaken >= pool.length) continue;         // pool exhausted
+        if (alreadyTaken >= PREFERRED_PER_SUB) continue;   // per-sub cap reached
+        taken[sub].push(pool[alreadyTaken]);
+        total++;
+        progressed = true;
+      }
+    }
+
+    // Build question objects. Keep sub-order grouping for the UI.
     const questions = [];
-
-    for (const sub of subOrder) {
-      const s = bySub[sub] || { docs: [], dos: [], donts: [] };
-      const subQuestions = [];
-
-      // -- 1) Doc-based questions from THIS sub's own tabs (process + objection)
-      const shuffledDocs = shuffle(s.docs);
-      for (const pair of shuffledDocs) {
-        if (subQuestions.length >= QUESTIONS_PER_SUB) break;
-        // Distractor pool: OTHER sub's answers in same category first, then
-        // other-category answers. Keeps distractors plausible but distinct.
+    for (const sub of validSubs) {
+      for (const pair of taken[sub]) {
         const otherInCat = catAnswers.filter(a => a !== pair.a);
         let distractors = pickN(otherInCat, pair.a, 3);
         if (distractors.length < 3) {
@@ -796,48 +816,14 @@
         }
         distractors = distractors.slice(0, 3);
         if (distractors.length < 3) continue;
-        // SIMPLE wording — trainer explicitly asked for simple, understandable.
         const prompt = pair.kind === "objection"
           ? `CSP kehta hai: "${pair.q}"\nAapka correct response kya hoga?`
           : `Situation: "${pair.q}"\nSahi tarika kya hai?`;
-        const q = makeQuestion(
-          prompt, pair.a,
-          [pair.a, ...distractors],
-          ""
-        );
+        const q = makeQuestion(prompt, pair.a, [pair.a, ...distractors], "");
         q.subCategory = sub;
-        subQuestions.push(q);
+        questions.push(q);
       }
-
-      // -- 2) Top up with DO/DON'T questions from THIS sub if we're short of 5
-      const seenDos = new Set(subQuestions.map(q => q.correct));
-      const remainingDos = s.dos.filter(t => !seenDos.has(t));
-      const shuffledDos = shuffle(remainingDos);
-      for (const doItem of shuffledDos) {
-        if (subQuestions.length >= QUESTIONS_PER_SUB) break;
-        // Distractors: prefer this-sub DON'Ts, else cat-wide DON'Ts, else other-cat DON'Ts
-        const catDonts = [];
-        Object.values(bySub).forEach(x => catDonts.push(...x.donts));
-        let distractors = pickN(s.donts, doItem, 3);
-        if (distractors.length < 3) {
-          distractors = distractors.concat(pickN(catDonts, doItem, 3 - distractors.length));
-        }
-        distractors = distractors.slice(0, 3);
-        if (distractors.length < 3) continue;
-        const q = makeQuestion(
-          `"${sub}" me — kaunsa correct practice hai?`,
-          doItem,
-          [doItem, ...distractors],
-          ""
-        );
-        q.subCategory = sub;
-        subQuestions.push(q);
-      }
-
-      // Append this sub's questions to the master list (preserves sub order)
-      questions.push(...subQuestions);
     }
-
     return questions;
   }
 
