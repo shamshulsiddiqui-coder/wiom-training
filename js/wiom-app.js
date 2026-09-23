@@ -1219,8 +1219,11 @@
       if (isDone) cardCls.push("is-done");
 
       const subCount = (c.subCategories || []).length || 1;
-      const verbCount = (c.verbatims || []).length;
-      const dosCount = (c.dos || []).length + (c.donts || []).length;
+      // Projected quiz size — matches what generateQuiz will actually produce,
+      // capped by PREFERRED_PER_SUB × sub-count and MAX_TOTAL_QUESTIONS. Doc
+      // content availability might trim this at quiz time, but this is the
+      // upper bound and matches what the agent sees on the "N of X" counter.
+      const quizSize = Math.min(subCount * PREFERRED_PER_SUB, MAX_TOTAL_QUESTIONS);
 
       cardsHtml += `
         <div class="${cardCls.join(" ")}" data-act="quiz" data-id="${c.id}">
@@ -1232,8 +1235,7 @@
           <h3>${escapeHtml(c.name)}</h3>
           <div class="meta">
             <span class="meta-item">📂 <strong>${subCount}</strong> sub-categor${subCount === 1 ? "y" : "ies"}</span>
-            <span class="meta-item">❓ <strong>${verbCount}</strong> questions</span>
-            <span class="meta-item">✅ <strong>${dosCount}</strong> do/don't</span>
+            <span class="meta-item">❓ <strong>${quizSize}</strong> quiz questions</span>
           </div>
           <div class="card-footer">${footer}</div>
         </div>`;
