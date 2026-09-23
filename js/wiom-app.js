@@ -497,6 +497,19 @@
     }
 
     // NEW-SHAPE parsing — group by CATEGORY, aggregate content.
+    // Trainer-driven include filter: LAST column (currently "cross check") acts
+    // as a per-row on/off switch. Write `test` in that cell to include the row
+    // in the MCQ pool, leave it blank to hide the row. If NO row has "test",
+    // fall back to including all rows so an empty filter column doesn't blank
+    // out the whole dashboard by surprise.
+    const lastColIdx = header.length - 1;
+    const INCLUDE_VALUE = "test";
+    let anyRowMarkedTest = false;
+    for (let i = 1; i < rows.length; i++) {
+      const v = ((rows[i] || [])[lastColIdx] || "").trim().toLowerCase();
+      if (v === INCLUDE_VALUE) { anyRowMarkedTest = true; break; }
+    }
+
     const groups = new Map();      // catName → aggregate object
     const orderedKeys = [];        // preserve first-seen order
 
@@ -505,6 +518,11 @@
       if (!r || r.length === 0) continue;
       const catName = (r[col.category] || "").trim();
       if (!catName) continue;
+      // Apply the per-row include filter (only when at least one row is marked)
+      if (anyRowMarkedTest) {
+        const flag = ((r[lastColIdx] || "").trim().toLowerCase());
+        if (flag !== INCLUDE_VALUE) continue;
+      }
       const subName = (col.subCat >= 0 ? (r[col.subCat] || "").trim() : "") || catName;
       const dosDontText = col.dosdont >= 0 ? r[col.dosdont] || "" : "";
       const verbText    = col.verbatim >= 0 ? r[col.verbatim] || "" : "";
