@@ -1562,11 +1562,10 @@
           <div class="msg">${msg}</div>
           <div class="cta-row">
             <a href="#/" class="btn ghost lg">🏠 Dashboard</a>
-            ${passed
-              ? (next
-                  ? `<a href="#/quiz/${next.id}" class="btn primary lg">Next Quiz →</a>`
-                  : `<a href="#/" class="btn primary lg">🎉 All Done</a>`)
-              : `<a href="#/quiz/${cat.id}" class="btn primary lg">🔁 Retry Quiz</a>`}
+            ${!passed ? `<a href="#/quiz/${cat.id}" class="btn ghost lg">🔁 Retry</a>` : ``}
+            ${next
+              ? `<a href="#/quiz/${next.id}" class="btn primary lg">Next Quiz →</a>`
+              : `<a href="#/" class="btn primary lg">🎉 All Done</a>`}
           </div>
           <div style="margin-top:20px;font-size:12px;"><a href="#/" style="color:var(--muted);text-decoration:none;">← All categories</a></div>
         </div>`;
