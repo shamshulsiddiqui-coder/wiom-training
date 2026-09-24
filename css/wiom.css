@@ -318,6 +318,12 @@ html, body {
 }
 @keyframes ready-glow { 0%, 100% { opacity: 0; } 50% { opacity: 0.35; } }
 .card.is-done { background: linear-gradient(180deg, #fff 70%, var(--green-bg) 100%); }
+/* Partial: attempted but not 100% — amber wash so it's visually distinct
+   from a perfect pass without looking like a "failure" or a re-do prompt. */
+.card.is-partial { background: linear-gradient(180deg, #fff 70%, var(--amber-bg) 100%); cursor: default; }
+.card.is-partial .cat-icon { background: var(--amber-bg); border-color: var(--amber); }
+.card.is-partial::after { display: none; }
+.card.is-done:not(.is-partial) { cursor: default; }
 
 .card-top {
   display: flex;

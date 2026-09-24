@@ -881,19 +881,15 @@
   }
 
   /** Compute status for a category given its index in CATS.
-   *  Sequential unlock removed — every category is always open. Statuses:
-   *    done   — passed at the current content version
-   *    retry  — attempted but not passed, OR passed at a stale content version
-   *    open   — never attempted
+   *  ONE-SHOT model — once an agent attempts a category, whatever they got
+   *  is final. No re-attempts. Two visual statuses drive the grid:
+   *    done  — attempted (whether they got 100% or less). Non-clickable.
+   *    open  — never attempted. Clickable, launches the quiz.
    */
   function statusFor(idx) {
     const cat = CATS[idx];
     const p = PROGRESS[cat.id];
-    if (p && p.passed) {
-      if (p.contentHash && p.contentHash !== cat.contentHash) return "retry";
-      return "done";
-    }
-    if (p && p.attempts > 0 && !p.passed) return "retry";
+    if (p && p.attempts > 0) return "done"; // one-shot: attempted = final
     return "open";
   }
 
@@ -1161,9 +1157,14 @@
     const idx = CATS.indexOf(cat);
     // "Education" (SOP + Objection reading) view is turned off — every category
     // click goes straight to the quiz. Legacy #/cat/* URLs redirect for safety.
-    // No unlock gating: every category is always accessible.
+    // ONE-SHOT gating: once attempted, /quiz/<id> is no longer accessible.
+    // Admin can still preview any quiz. Regular agent gets bumped back to grid.
     if (view === "cat") { location.replace("#/quiz/" + id); return; }
-    if (view === "quiz") return renderQuiz(cat, idx);
+    if (view === "quiz") {
+      const stat = statusFor(idx);
+      if (stat === "done" && !isAdmin()) { location.replace("#/"); return; }
+      return renderQuiz(cat, idx);
+    }
   }
 
   // ===========================================================================
@@ -1192,22 +1193,17 @@
       const p = PROGRESS[c.id] || {};
       const isOpen = stat === "open";
       const isDone = stat === "done";
-      // No "locked" state any more — every category is always accessible.
-      const STATUS_LBL = {
-        done:  { label: "Passed", cls: "done"  },
-        open:  { label: "Ready",  cls: "open"  },
-        retry: { label: "Retry",  cls: "retry" },
-      }[stat];
+      // ONE-SHOT: once attempted, card is non-clickable. Show the score
+      // prominently. Score determines the visual (green for 100%, amber
+      // if under) but neither is re-attemptable.
+      const scored = isDone ? (p.last != null ? p.last : (p.best || 0)) : null;
+      const wasPerfect = isDone && p.passed;
 
       let footer;
       if (isDone) {
         footer = `
-          <span class="score-text">Score · <strong>${p.best || 100}%</strong></span>
-          <button class="btn ghost" data-act="quiz" data-id="${c.id}">Retake</button>`;
-      } else if (stat === "retry") {
-        footer = `
-          <span class="score-text">Last · <strong class="fail">${p.last || 0}%</strong></span>
-          <button class="btn primary" data-act="quiz" data-id="${c.id}">Retry →</button>`;
+          <span class="score-text">Score · <strong ${wasPerfect ? "" : `class="fail"`}>${scored}%</strong></span>
+          <span class="lock-note">✓ Attempted — final</span>`;
       } else {
         footer = `
           <span class="score-text">Ready to start</span>
@@ -1215,21 +1211,26 @@
       }
 
       const cardCls = ["card"];
-      if (isOpen || stat === "retry") cardCls.push("is-open");
+      if (isOpen) cardCls.push("is-open");
       if (isDone) cardCls.push("is-done");
+      if (isDone && !wasPerfect) cardCls.push("is-partial");
 
       const subCount = (c.subCategories || []).length || 1;
-      // Projected quiz size — matches what generateQuiz will actually produce,
-      // capped by PREFERRED_PER_SUB × sub-count and MAX_TOTAL_QUESTIONS. Doc
-      // content availability might trim this at quiz time, but this is the
-      // upper bound and matches what the agent sees on the "N of X" counter.
       const quizSize = Math.min(subCount * PREFERRED_PER_SUB, MAX_TOTAL_QUESTIONS);
 
+      // Card-level click only fires for open categories (isOpen). Attempted
+      // cards get an empty data-id so the delegate in the click wiring skips
+      // them entirely.
+      const clickableId = isOpen ? c.id : "";
+      const statusBadge = isDone
+        ? `<span class="status ${wasPerfect ? "done" : "retry"}"><span class="dot"></span>${wasPerfect ? "Passed" : "Attempted"}</span>`
+        : `<span class="status open"><span class="dot"></span>Ready</span>`;
+
       cardsHtml += `
-        <div class="${cardCls.join(" ")}" data-act="quiz" data-id="${c.id}">
+        <div class="${cardCls.join(" ")}" data-act="quiz" data-id="${clickableId}">
           <div class="card-top">
             <div class="cat-icon">${c.icon}</div>
-            ${isDone ? "" : `<span class="status ${STATUS_LBL.cls}"><span class="dot"></span>${STATUS_LBL.label}</span>`}
+            ${statusBadge}
           </div>
           <div class="cat-id">${c.level} · ${String(c.order).padStart(2, "0")} of ${total}</div>
           <h3>${escapeHtml(c.name)}</h3>
@@ -1244,7 +1245,6 @@
     const counts = {
       done: CATS.filter((_, i) => statusFor(i) === "done").length,
       open: CATS.filter((_, i) => statusFor(i) === "open").length,
-      retry: CATS.filter((_, i) => statusFor(i) === "retry").length,
     };
 
     const firstName = (currentName().split(/\s+/)[0]) || "Agent";
@@ -1278,8 +1278,7 @@
       <div class="section-head">
         <h2>Your Training Path</h2>
         <span class="count">
-          <span class="dot-passed">${counts.done} passed</span>
-          <span class="dot-retry">${counts.retry} retry</span>
+          <span class="dot-passed">${counts.done} attempted</span>
           <span class="dot-ready">${counts.open} ready</span>
         </span>
       </div>
@@ -1527,30 +1526,28 @@
     }
 
     function showResult() {
-      const wasPassed = !!PROGRESS[cat.id]?.passed; // before recording
       const { pct, passed } = recordAttempt(cat.id, correctCount, questions.length, cat.name);
       document.getElementById("qBar").style.width = "100%";
+      // ONE-SHOT model: this attempt IS the record. Retry doesn't exist.
 
-      // Effective pass = this attempt was 100% OR the category was already
-      // passed before. Once a category is passed, the RESULT PAGE never
-      // reverts to a "fail with Retry" state — even if the retake was
-      // partial. (Card status is unaffected — it already stays "done".)
-      const effectivelyPassed = passed || wasPassed;
+      // Find the next un-attempted category (ONE-SHOT — attempted cats are
+      // gone from the pool). Search from idx+1 forward, wrap to start.
+      let next = null;
+      for (let j = idx + 1; j < CATS.length; j++) {
+        if (statusFor(j) === "open") { next = CATS[j]; break; }
+      }
+      if (!next) {
+        for (let j = 0; j < idx; j++) {
+          if (statusFor(j) === "open") { next = CATS[j]; break; }
+        }
+      }
 
       let emoji, title, msg, cls;
       if (passed) {
         emoji = "🏆"; title = "Perfect Score!"; cls = "pass";
-        const nextIdx = idx + 1;
-        if (nextIdx < CATS.length) {
-          msg = `${correctCount} / ${questions.length} sahi! Aap chaho to <strong>${escapeHtml(CATS[nextIdx].name)}</strong> ka test bhi try kar sakte ho.`;
-        } else {
-          msg = `🎉 Aapne saari ${CATS.length} categories complete kar li! <strong>Training champion!</strong>`;
-        }
-      } else if (wasPassed) {
-        // Retake of an already-passed category didn't hit 100%. Don't scold —
-        // celebrate the original pass and move them along.
-        emoji = "✅"; title = "Category already passed"; cls = "pass";
-        msg = `Is attempt me ${correctCount} / ${questions.length} sahi. Category pehle se <strong>passed</strong> hai — koi retry zaroori nahi.`;
+        msg = next
+          ? `${correctCount} / ${questions.length} sahi! Next up: <strong>${escapeHtml(next.name)}</strong>.`
+          : `🎉 Aapne saari ${CATS.length} categories complete kar li! <strong>Training champion!</strong>`;
       } else {
         const wrong = questions.length - correctCount;
         if (pct >= 80) {
@@ -1560,16 +1557,16 @@
         } else {
           emoji = "🤔"; title = "SOP dobara padho"; cls = "fail";
         }
-        msg = `<strong>${correctCount} sahi · ${wrong} galat.</strong><br>Aap chaho to next category start kar sakte ho.`;
+        msg = next
+          ? `<strong>${correctCount} sahi · ${wrong} galat.</strong><br>Next up: <strong>${escapeHtml(next.name)}</strong>.`
+          : `<strong>${correctCount} sahi · ${wrong} galat.</strong><br>Saari categories attempt ho gayi.`;
       }
-
-      const next = CATS[idx + 1];
       $root.innerHTML = `
         <div class="result-card ${cls}">
           <div class="emoji">${emoji}</div>
           <h2>${title}</h2>
           <div class="score-big ${cls}">${pct}%</div>
-          <div class="lbl ${cls}">${correctCount} / ${questions.length} ${effectivelyPassed ? "· PASSED" : "· ATTEMPT COMPLETE"}</div>
+          <div class="lbl ${cls}">${correctCount} / ${questions.length} ${passed ? "· PASSED" : "· SUBMITTED"}</div>
           <div class="msg">${msg}</div>
           <div class="cta-row">
             <a href="#/" class="btn ghost lg">🏠 Dashboard</a>
