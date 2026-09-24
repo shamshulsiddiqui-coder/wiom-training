@@ -72,6 +72,7 @@
     CACHE_TS: "wiom.csv.cache.ts",
     VERSION:  "wiom.app.version",
     CAT_HASHES: "wiom.cat.hashes", // {catId: contentHash} — last-seen per category
+    QUIZ_STATE_PREFIX: "wiom.quiz.state", // + .<userSlug>.<catId> — mid-quiz snapshot
   };
 
   // Bump this to force-logout all users on next page load.
@@ -1411,26 +1412,64 @@
         </div>
       </div>`;
 
-    let docPairs = [];
-    try { docPairs = await fetchDocPairs(cat); }
-    catch (e) { console.warn("[WIOM] doc fetch failed:", e); docPairs = []; }
-
-    // If user navigated away while docs were loading, bail out silently.
-    const hashNow = location.hash || "#/";
-    if (hashNow !== "#/quiz/" + cat.id) return;
-
-    const questions = generateQuiz(cat, docPairs);
-    if (questions.length === 0) {
-      $root.innerHTML = `
-        <div class="error-block">
-          Is category ke liye quiz generate nahi ho payi — content thoda kam hai. Trainer se check karayein.
-          <br><a href="#/" style="color:inherit;text-decoration:underline;">← Back</a>
-        </div>`;
-      return;
-    }
-
+    // Try to resume from a saved in-flight snapshot BEFORE we fetch docs —
+    // if the snapshot's content hash matches the current one, we can skip the
+    // network round-trip entirely (questions are stored in the snapshot).
+    const stateKey = LS.QUIZ_STATE_PREFIX + "." + slugify(currentEmail()) + "." + cat.id;
+    const savedState = lsGetJSON(stateKey, null);
+    let questions;
     let qIdx = 0;
     let correctCount = 0;
+
+    const canResume =
+      savedState &&
+      savedState.contentHash === cat.contentHash &&
+      Array.isArray(savedState.questions) &&
+      savedState.questions.length > 0 &&
+      typeof savedState.qIdx === "number" &&
+      savedState.qIdx > 0;
+
+    if (canResume) {
+      questions    = savedState.questions;
+      qIdx         = Math.min(savedState.qIdx, questions.length - 1);
+      correctCount = Number(savedState.correctCount || 0);
+    } else {
+      // No usable snapshot — go fetch docs and generate a fresh quiz.
+      let docPairs = [];
+      try { docPairs = await fetchDocPairs(cat); }
+      catch (e) { console.warn("[WIOM] doc fetch failed:", e); docPairs = []; }
+
+      const hashNow = location.hash || "#/";
+      if (hashNow !== "#/quiz/" + cat.id) return;
+
+      questions = generateQuiz(cat, docPairs);
+      if (questions.length === 0) {
+        $root.innerHTML = `
+          <div class="error-block">
+            Is category ke liye quiz generate nahi ho payi — content thoda kam hai. Trainer se check karayein.
+            <br><a href="#/" style="color:inherit;text-decoration:underline;">← Back</a>
+          </div>`;
+        return;
+      }
+      // A stale snapshot (from before a sheet edit) — clear it so we don't
+      // keep offering the wrong questions on subsequent visits.
+      if (savedState) lsSet(stateKey, "");
+    }
+
+    // Helper — persist the current in-flight state after every answered Q.
+    function saveQuizState() {
+      try {
+        lsSetJSON(stateKey, {
+          qIdx,
+          correctCount,
+          questions,
+          contentHash: cat.contentHash,
+          updatedAt: Date.now(),
+        });
+      } catch (e) { /* localStorage full or private mode — silent */ }
+    }
+    function clearQuizState() { try { lsSet(stateKey, ""); } catch (e) {} }
+
     let answered = false;
     let streak = 0; // consecutive correct in THIS attempt
 
@@ -1553,6 +1592,8 @@
     function onNext() {
       if (qIdx < questions.length - 1) {
         qIdx++;
+        // Persist mid-quiz state so a crash / close / refresh doesn't restart.
+        saveQuizState();
         drawQuestion();
       } else {
         showResult();
@@ -1560,6 +1601,9 @@
     }
 
     function showResult() {
+      // Quiz done — snapshot is no longer needed; the attempt is now recorded
+      // in PROGRESS (localStorage) and streamed to the Form sheet (backend).
+      clearQuizState();
       const { pct, passed } = recordAttempt(cat.id, correctCount, questions.length, cat.name);
       document.getElementById("qBar").style.width = "100%";
       // ONE-SHOT model: this attempt IS the record. Retry doesn't exist.
@@ -1651,6 +1695,10 @@
     }
 
     drawQuestion();
+    // Let the agent know the app picked up where they left off.
+    if (canResume) {
+      setTimeout(() => showToast(`▶ Resumed from Question ${qIdx + 1}`), 400);
+    }
   }
 
   // ===========================================================================
