@@ -806,16 +806,50 @@
     }
 
     // Build question objects. Keep sub-order grouping for the UI.
+    //
+    // Distractor strategy — the critical fix for the "koi option sahi nahi hai"
+    // complaint. Same sub-category answers are often paraphrases of each other
+    // (e.g. TICKET NOT REFLECTING has 6 responses that all boil down to
+    // "verify system + escalate"). If we pull distractors from within the SAME
+    // sub-cat, all 4 options read as plausible and the agent can't tell which
+    // is "the" correct one.
+    //
+    // Fix: prefer distractors from OTHER sub-categories in the same category
+    // (still on-topic but semantically distinct), then fall back to other
+    // categories, and only use same-sub answers as a last resort.
     const questions = [];
     for (const sub of validSubs) {
+      // Answers from OTHER subs within this category
+      const otherSubAnswers = docPairs
+        .filter(p => p.sub !== sub)
+        .map(p => p.a);
+      // Answers from SAME sub (last-resort filler only)
+      const sameSubAnswers = docPairs
+        .filter(p => p.sub === sub)
+        .map(p => p.a);
+
       for (const pair of taken[sub]) {
-        const otherInCat = catAnswers.filter(a => a !== pair.a);
-        let distractors = pickN(otherInCat, pair.a, 3);
+        // Tier 1: other sub-cats in same category (most distinguishable)
+        let distractors = pickN(otherSubAnswers, pair.a, 3);
+        // Tier 2: other categories entirely
         if (distractors.length < 3) {
-          distractors = distractors.concat(pickN(otherAnswers, pair.a, 3 - distractors.length));
+          distractors = distractors.concat(
+            pickN(otherAnswers, pair.a, 3 - distractors.length)
+          );
+        }
+        // Tier 3 (last resort): same-sub answers — only if the above tiers
+        // still can't fill 3 slots (very small category with 1-2 subs).
+        if (distractors.length < 3) {
+          const usedSet = new Set(distractors);
+          usedSet.add(pair.a);
+          const leftover = sameSubAnswers.filter(a => !usedSet.has(a));
+          distractors = distractors.concat(
+            pickN(leftover, pair.a, 3 - distractors.length)
+          );
         }
         distractors = distractors.slice(0, 3);
         if (distractors.length < 3) continue;
+
         const prompt = pair.kind === "objection"
           ? `CSP kehta hai: "${pair.q}"\nAapka correct response kya hoga?`
           : `Situation: "${pair.q}"\nSahi tarika kya hai?`;
