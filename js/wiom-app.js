@@ -1560,7 +1560,7 @@
         } else {
           emoji = "🤔"; title = "SOP dobara padho"; cls = "fail";
         }
-        msg = `<strong>${correctCount} sahi · ${wrong} galat.</strong><br>100% laane ke liye retry karo — koi baat nahi, jitni baar chaho.`;
+        msg = `<strong>${correctCount} sahi · ${wrong} galat.</strong><br>Aap chaho to next category start kar sakte ho.`;
       }
 
       const next = CATS[idx + 1];
@@ -1569,11 +1569,10 @@
           <div class="emoji">${emoji}</div>
           <h2>${title}</h2>
           <div class="score-big ${cls}">${pct}%</div>
-          <div class="lbl ${cls}">${correctCount} / ${questions.length} ${effectivelyPassed ? "· PASSED" : "· RETRY NEEDED"}</div>
+          <div class="lbl ${cls}">${correctCount} / ${questions.length} ${effectivelyPassed ? "· PASSED" : "· ATTEMPT COMPLETE"}</div>
           <div class="msg">${msg}</div>
           <div class="cta-row">
             <a href="#/" class="btn ghost lg">🏠 Dashboard</a>
-            ${!effectivelyPassed ? `<a href="#/quiz/${cat.id}" class="btn ghost lg">🔁 Retry</a>` : ``}
             ${next
               ? `<a href="#/quiz/${next.id}" class="btn primary lg">Next Quiz →</a>`
               : `<a href="#/" class="btn primary lg">🎉 All Done</a>`}
