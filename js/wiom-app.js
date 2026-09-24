@@ -1531,6 +1531,12 @@
       const { pct, passed } = recordAttempt(cat.id, correctCount, questions.length, cat.name);
       document.getElementById("qBar").style.width = "100%";
 
+      // Effective pass = this attempt was 100% OR the category was already
+      // passed before. Once a category is passed, the RESULT PAGE never
+      // reverts to a "fail with Retry" state — even if the retake was
+      // partial. (Card status is unaffected — it already stays "done".)
+      const effectivelyPassed = passed || wasPassed;
+
       let emoji, title, msg, cls;
       if (passed) {
         emoji = "🏆"; title = "Perfect Score!"; cls = "pass";
@@ -1540,6 +1546,11 @@
         } else {
           msg = `🎉 Aapne saari ${CATS.length} categories complete kar li! <strong>Training champion!</strong>`;
         }
+      } else if (wasPassed) {
+        // Retake of an already-passed category didn't hit 100%. Don't scold —
+        // celebrate the original pass and move them along.
+        emoji = "✅"; title = "Category already passed"; cls = "pass";
+        msg = `Is attempt me ${correctCount} / ${questions.length} sahi. Category pehle se <strong>passed</strong> hai — koi retry zaroori nahi.`;
       } else {
         const wrong = questions.length - correctCount;
         if (pct >= 80) {
@@ -1558,11 +1569,11 @@
           <div class="emoji">${emoji}</div>
           <h2>${title}</h2>
           <div class="score-big ${cls}">${pct}%</div>
-          <div class="lbl ${cls}">${correctCount} / ${questions.length} ${passed ? "· PASSED" : "· RETRY NEEDED"}</div>
+          <div class="lbl ${cls}">${correctCount} / ${questions.length} ${effectivelyPassed ? "· PASSED" : "· RETRY NEEDED"}</div>
           <div class="msg">${msg}</div>
           <div class="cta-row">
             <a href="#/" class="btn ghost lg">🏠 Dashboard</a>
-            ${!passed ? `<a href="#/quiz/${cat.id}" class="btn ghost lg">🔁 Retry</a>` : ``}
+            ${!effectivelyPassed ? `<a href="#/quiz/${cat.id}" class="btn ghost lg">🔁 Retry</a>` : ``}
             ${next
               ? `<a href="#/quiz/${next.id}" class="btn primary lg">Next Quiz →</a>`
               : `<a href="#/" class="btn primary lg">🎉 All Done</a>`}
